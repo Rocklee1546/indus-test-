@@ -100,14 +100,79 @@ export const AppProvider = ({ children }) => {
   // Navigation
   const [activeModule, setActiveModule] = useState('dashboard');
   const [selectedBranch, setSelectedBranch] = useState('ALL');
-  const [currentUser, setCurrentUser] = useState(USERS[0]); // Default: Dr. Priya Sharma matching Image 1!
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [settingsTab, setSettingsTab] = useState('general');
 
   // Search & Filters
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   // Entities Data State with LocalStorage Persistence
+  const [doctors, setDoctors] = useState(() => {
+    const loaded = loadFromStorage('indus_doctors_v4', null);
+    if (loaded && Array.isArray(loaded) && loaded.length > 0) return loaded;
+    return DOCTORS.map(d => ({
+      ...d,
+      role: d.specialty || 'Dental Surgeon',
+      phone: d.phone || '+91 98422 10101',
+      email: d.email || `${d.name.toLowerCase().replace(/[^a-z]/g, '')}@indusdental.in`,
+      status: d.status || 'Active'
+    }));
+  });
+
+  // Central Doctor Profile Synchronization State
+  const [activeDoctorId, setActiveDoctorId] = useState(() => {
+    return loadFromStorage('indus_active_doctor_id_v4', 'DOC-01');
+  });
+
+  // Persist active doctor selection across sessions
+  useEffect(() => {
+    if (activeDoctorId) {
+      try {
+        localStorage.setItem('indus_active_doctor_id_v4', JSON.stringify(activeDoctorId));
+      } catch (e) {}
+    }
+  }, [activeDoctorId]);
+
+  // Dynamically derived currentUser synchronized with central Doctor Management
+  const currentUser = useMemo(() => {
+    // 1. Try finding selected doctor who is active
+    let activeDoc = doctors.find(d => d.id === activeDoctorId && (d.status || 'Active') === 'Active');
+
+    // 2. Fallback to first available active doctor
+    if (!activeDoc) {
+      activeDoc = doctors.find(d => (d.status || 'Active') === 'Active') || doctors[0] || {
+        id: 'DOC-01',
+        name: 'Dr. Priya Sharma',
+        role: 'Chief Dental Surgeon',
+        specialty: 'Chief Dental Surgeon & Implantologist'
+      };
+    }
+
+    return {
+      id: activeDoc.id,
+      name: activeDoc.name,
+      role: activeDoc.role || activeDoc.specialty || 'Doctor',
+      title: activeDoc.role || activeDoc.specialty || 'Chief Dental Surgeon',
+      branchId: activeDoc.branchId || 'RS_PURAM',
+      avatar: activeDoc.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeDoc.name)}&background=1769d2&color=fff`,
+      phone: activeDoc.phone,
+      email: activeDoc.email,
+      permissions: ['all']
+    };
+  }, [doctors, activeDoctorId]);
+
+  // Switch doctor profile action with validation
+  const selectDoctorProfile = (doctorId) => {
+    const doc = doctors.find(d => d.id === doctorId);
+    if (!doc) return;
+    if (doc.status === 'Inactive') {
+      showToast(`${doc.name} is inactive and cannot be selected as the active profile.`, 'error');
+      return;
+    }
+    setActiveDoctorId(doctorId);
+    showToast(`Switched active profile to ${doc.name}`, 'success');
+  };
   const [leads, setLeads] = useState(() => loadFromStorage('indus_leads_v4', INITIAL_LEADS));
   const [patients, setPatients] = useState(() => loadFromStorage('indus_patients_v4', INITIAL_PATIENTS));
   const [appointments, setAppointments] = useState(() => loadFromStorage('indus_appointments_v4', INITIAL_APPOINTMENTS));
@@ -121,6 +186,9 @@ export const AppProvider = ({ children }) => {
   const [feedbackList, setFeedbackList] = useState(INITIAL_FEEDBACK);
 
   // Sync state to LocalStorage
+  useEffect(() => {
+    try { localStorage.setItem('indus_doctors_v4', JSON.stringify(doctors)); } catch (e) {}
+  }, [doctors]);
   useEffect(() => {
     try { localStorage.setItem('indus_leads_v4', JSON.stringify(leads)); } catch (e) {}
   }, [leads]);
@@ -411,53 +479,106 @@ export const AppProvider = ({ children }) => {
     showToast(`Lead status updated to ${newStatus}`);
   };
 
-  // 3. Reschedule Follow-up (synchronizes follow-up & linked lead)
-  const rescheduleFollowup = (followupId, newDate, newTime, reason = '') => {
-    const fol = followups.find(f => f.id === followupId);
-    if (!fol) return;
+  // 3. Schedule Next Follow-up (synchronizes follow-up & linked lead)
+  const scheduleNextFollowup = ({
+    leadId,
+    followupId,
+    date,
+    time,
+    reason = 'Follow-up regarding dental consultation',
+    notes = ''
+  }) => {
+    const lead = leads.find(l => l.id === leadId);
+    const isoDateTime = `${date}T${time}`;
 
-    const newDateTime = `${newDate}T${newTime}`;
+    // Find existing pending follow-up task if any
+    const existingFollowup = followupId
+      ? followups.find(f => f.id === followupId)
+      : followups.find(f => f.leadId === leadId && f.status !== 'Completed' && f.status !== 'Cancelled');
 
-    setFollowups(prev => prev.map(f => {
-      if (f.id === followupId) {
-        return {
-          ...f,
-          scheduledDate: newDate,
-          scheduledTime: newTime,
-          scheduledDateTime: newDateTime,
-          status: 'Rescheduled',
-          notes: (f.notes ? f.notes + ' | ' : '') + `Rescheduled to ${newDate} ${newTime}: ${reason}`,
-          nextAction: `Follow-up on ${newDate} at ${newTime}`
-        };
-      }
-      return f;
-    }));
+    const isPending = existingFollowup && existingFollowup.status !== 'Completed' && existingFollowup.status !== 'Cancelled';
 
-    // If linked to lead, synchronize lead
-    if (fol.leadId) {
+    if (isPending) {
+      // Update existing pending follow-up without creating duplicates
+      setFollowups(prev => prev.map(f => {
+        if (f.id === existingFollowup.id) {
+          return {
+            ...f,
+            scheduledDate: date,
+            scheduledTime: time,
+            scheduledDateTime: isoDateTime,
+            status: 'Pending',
+            category: reason || f.category || 'Enquiry Follow-up',
+            reason: notes || reason || f.reason,
+            notes: (f.notes ? `${f.notes} | ` : '') + `Next Follow-up: ${date} ${time}${notes ? ` - ${notes}` : ''}`,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return f;
+      }));
+    } else {
+      // Create new follow-up task linked to the lead
+      const newFollowup = {
+        id: `FOL-${Math.floor(2000 + Math.random() * 8000)}`,
+        leadId: leadId,
+        name: lead?.name || 'Prospective Patient',
+        phone: lead?.phone || '',
+        treatment: lead?.treatment || 'General Dental Consultation',
+        category: reason || 'Next Follow-up Call',
+        scheduledDate: date,
+        scheduledTime: time,
+        scheduledDateTime: isoDateTime,
+        status: 'Pending',
+        notes: notes || `Follow-up scheduled on ${date} at ${time}`,
+        reason: notes || reason || 'Next follow-up consultation',
+        assignedTo: 'Sneha R (Front Desk)',
+        branchId: lead?.branchId || selectedBranch || 'RS_PURAM',
+        channel: 'Phone Call',
+        createdAt: new Date().toISOString()
+      };
+      setFollowups(prev => [newFollowup, ...prev]);
+    }
+
+    // Synchronize Lead Record: nextFollowup, nextAction, and timeline
+    if (leadId) {
       setLeads(prev => prev.map(l => {
-        if (l.id === fol.leadId) {
+        if (l.id === leadId) {
           const timelineEntry = {
             id: `TL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             type: 'followup',
-            title: 'Follow-up Rescheduled',
-            description: `Follow-up moved to ${newDate} at ${newTime}. Reason: ${reason || 'Customer request'}`,
+            title: 'Next Follow-up Scheduled',
+            description: `Scheduled for ${date} at ${time}. ${notes ? `Remarks: ${notes}` : `Reason: ${reason}`}`,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             date: 'Today',
             user: currentUser.name
           };
+
+          const updatedTimeline = [timelineEntry, ...(l.timeline || [])];
           return {
             ...l,
-            nextFollowup: newDateTime,
-            nextAction: `Follow-up on ${newDate} at ${newTime} (${reason || 'Rescheduled'})`,
-            timeline: [timelineEntry, ...(l.timeline || [])]
+            nextFollowup: isoDateTime,
+            nextAction: `Follow-up on ${date} at ${time}${notes ? ` • ${notes}` : ''}`,
+            timeline: updatedTimeline,
+            activityTimeline: updatedTimeline
           };
         }
         return l;
       }));
     }
 
-    showToast(`Follow-up rescheduled to ${newDate} (${newTime})`);
+    showToast(`Next follow-up scheduled for ${date} at ${time}!`, 'success');
+  };
+
+  const rescheduleFollowup = (followupId, newDate, newTime, reason = '') => {
+    const fol = followups.find(f => f.id === followupId);
+    scheduleNextFollowup({
+      leadId: fol?.leadId,
+      followupId,
+      date: newDate,
+      time: newTime,
+      reason: reason || 'Follow-up Rescheduled',
+      notes: reason
+    });
   };
 
   // 4. Complete Follow-up Task
@@ -878,6 +999,95 @@ export const AppProvider = ({ children }) => {
     }
     setInvoices(prev => prev.filter(i => i.id !== invoiceId));
     showToast(`Invoice ${invoiceId} deleted.`, 'success');
+    return true;
+  };
+
+  // ── Doctor Management Actions ─────────────────────────────────────────────
+  const activeDoctors = useMemo(() => {
+    return doctors.filter(d => (d.status || 'Active') === 'Active');
+  }, [doctors]);
+
+  const addDoctor = (docData) => {
+    const newId = `DOC-${String(doctors.length + 1).padStart(2, '0')}`;
+    const newDoc = {
+      id: newId,
+      name: docData.name?.trim(),
+      role: docData.role?.trim() || 'Dental Surgeon',
+      specialty: docData.role?.trim() || 'Dental Surgeon',
+      phone: docData.phone?.trim() || '',
+      email: docData.email?.trim() || '',
+      status: docData.status || 'Active',
+      branchId: docData.branchId || (selectedBranch !== 'ALL' ? selectedBranch : 'RS_PURAM'),
+      consultationFee: Number(docData.consultationFee) || 500,
+      avatar: docData.avatar || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80'
+    };
+    setDoctors(prev => [...prev, newDoc]);
+    showToast(`Doctor ${newDoc.name} added successfully!`, 'success');
+    return newDoc;
+  };
+
+  const updateDoctor = (doctorId, updatedFields) => {
+    setDoctors(prev => prev.map(d => {
+      if (d.id === doctorId) {
+        return {
+          ...d,
+          ...updatedFields,
+          role: updatedFields.role || d.role,
+          specialty: updatedFields.role || d.specialty || d.role
+        };
+      }
+      return d;
+    }));
+    showToast('Doctor details updated successfully!', 'success');
+  };
+
+  const toggleDoctorStatus = (doctorId) => {
+    let nextStatus = 'Active';
+    setDoctors(prev => prev.map(d => {
+      if (d.id === doctorId) {
+        nextStatus = d.status === 'Active' ? 'Inactive' : 'Active';
+        showToast(`${d.name} is now marked ${nextStatus}.`);
+        return { ...d, status: nextStatus };
+      }
+      return d;
+    }));
+
+    // If currently active doctor is deactivated, gracefully switch to another active doctor
+    if (doctorId === activeDoctorId && nextStatus === 'Inactive') {
+      const otherActive = doctors.find(d => d.id !== doctorId && (d.status || 'Active') === 'Active');
+      if (otherActive) {
+        setActiveDoctorId(otherActive.id);
+        showToast(`Switched active profile to ${otherActive.name}`, 'info');
+      }
+    }
+  };
+
+  const deleteDoctor = (doctorId) => {
+    const doc = doctors.find(d => d.id === doctorId);
+    if (!doc) return false;
+
+    // Check if doctor is linked to existing appointments
+    const linkedAppts = appointments.filter(a => a.doctorId === doctorId || a.doctorName === doc.name);
+    if (linkedAppts.length > 0) {
+      showToast(
+        `Cannot delete ${doc.name}: linked to ${linkedAppts.length} existing appointment(s). Please deactivate the doctor instead.`,
+        'error'
+      );
+      return false;
+    }
+
+    setDoctors(prev => prev.filter(d => d.id !== doctorId));
+
+    // If currently active doctor was deleted, gracefully switch to another active doctor
+    if (doctorId === activeDoctorId) {
+      const otherActive = doctors.find(d => d.id !== doctorId && (d.status || 'Active') === 'Active');
+      if (otherActive) {
+        setActiveDoctorId(otherActive.id);
+        showToast(`Switched active profile to ${otherActive.name}`, 'info');
+      }
+    }
+
+    showToast(`Doctor ${doc.name} deleted successfully.`, 'success');
     return true;
   };
 
@@ -1668,13 +1878,21 @@ export const AppProvider = ({ children }) => {
         selectedBranch,
         setSelectedBranch,
         currentUser,
-        setCurrentUser,
+        setCurrentUser: (u) => {
+          if (typeof u === 'string') selectDoctorProfile(u);
+          else if (u?.id) selectDoctorProfile(u.id);
+        },
+        activeDoctorId,
+        selectDoctorProfile,
+        settingsTab,
+        setSettingsTab,
         isSidebarCollapsed,
         setIsSidebarCollapsed,
 
         // Data collections
         branches: BRANCHES,
-        doctors: DOCTORS,
+        doctors,
+        activeDoctors,
         leads,
         filteredLeads,
         patients,
@@ -1717,6 +1935,7 @@ export const AppProvider = ({ children }) => {
         deleteLead,
         updateLeadStatus,
         rescheduleFollowup,
+        scheduleNextFollowup,
         completeFollowupTask,
         convertLeadToPatient,
         bookAppointmentFromLead,
@@ -1754,6 +1973,10 @@ export const AppProvider = ({ children }) => {
         deleteInvoice,
         deleteAppointment,
         deleteFollowup,
+        addDoctor,
+        updateDoctor,
+        toggleDoctorStatus,
+        deleteDoctor,
         transferStock,
         savePrescription,
 

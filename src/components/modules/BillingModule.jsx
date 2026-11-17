@@ -23,7 +23,7 @@ import {
   MinusCircle,
   ShieldAlert
 } from 'lucide-react';
-import { exportToCSV, exportToExcel } from '../../utils/exportUtils';
+import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/exportUtils';
 import { computeQuickDateRange, isDateWithinRange } from '../../utils/dateFilterUtils';
 
 // ─── Branch Details ────────────────────────────────────────────────────────────
@@ -504,8 +504,10 @@ export default function BillingModule() {
     const filename = `INDUS_Dental_Billing_${dateLabel}_${new Date().toISOString().slice(0,10)}`;
     if (type === 'csv') {
       exportToCSV(EXPORT_HEADERS, rows, `${filename}.csv`);
+    } else if (type === 'pdf') {
+      exportToPDF(EXPORT_HEADERS, rows, `${filename}.pdf`, 'Billing & Invoices Audit Report');
     } else {
-      exportToExcel(EXPORT_HEADERS, rows, `${filename}.xlsx`);
+      exportToExcel(EXPORT_HEADERS, rows, `${filename}.xlsx`, 'Billing');
     }
     showToast(`Exported ${filtered.length} invoice(s) successfully.`, 'success');
   };
@@ -778,6 +780,9 @@ export default function BillingModule() {
                 </button>
                 <button onClick={() => handleExport('csv')} className="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-blue-50 text-[#102A50] flex items-center gap-2 cursor-pointer">
                   <FileText size={13} className="text-blue-600" /> Export to CSV (.csv)
+                </button>
+                <button onClick={() => handleExport('pdf')} className="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-rose-50 text-[#102A50] flex items-center gap-2 cursor-pointer">
+                  <FileText size={13} className="text-rose-600" /> Export to PDF (.pdf)
                 </button>
               </div>
             )}

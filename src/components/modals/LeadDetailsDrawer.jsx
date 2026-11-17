@@ -217,23 +217,23 @@ export default function LeadDetailsDrawer() {
             <span className="font-bold text-amber-950">Next Action:</span>
             <span className="truncate">{lead.nextAction || 'Follow-up as per schedule'}</span>
           </div>
-          {linkedFollowup && (
-            <button
-              onClick={() => {
-                setRescheduleData({
-                  followupId: linkedFollowup.id,
-                  currentDate: linkedFollowup.scheduledDate,
-                  currentTime: linkedFollowup.scheduledTime,
-                  currentReason: linkedFollowup.reason,
-                  leadId: lead.id
-                });
-                setIsRescheduleModalOpen(true);
-              }}
-              className="text-[11px] font-black text-[#1769D2] hover:underline shrink-0 cursor-pointer ml-2"
-            >
-              Reschedule
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setRescheduleData({
+                followupId: linkedFollowup ? linkedFollowup.id : null,
+                currentDate: linkedFollowup?.scheduledDate || (lead.nextFollowup ? lead.nextFollowup.split('T')[0] : new Date().toISOString().split('T')[0]),
+                currentTime: linkedFollowup?.scheduledTime || '11:00 AM',
+                currentReason: linkedFollowup?.reason || `Follow-up for ${lead.treatment || 'Consultation'}`,
+                leadId: lead.id,
+                leadName: lead.name,
+                leadTreatment: lead.treatment
+              });
+              setIsRescheduleModalOpen(true);
+            }}
+            className="text-[11px] font-black text-[#1769D2] hover:underline shrink-0 cursor-pointer ml-2"
+          >
+            Next Follow-up
+          </button>
         </div>
 
         {/* Conversion Status Alert: Converted / Lost / Actionable */}
@@ -496,13 +496,15 @@ export default function LeadDetailsDrawer() {
                               currentDate: linkedFollowup.scheduledDate,
                               currentTime: linkedFollowup.scheduledTime,
                               currentReason: linkedFollowup.reason,
-                              leadId: lead.id
+                              leadId: lead.id,
+                              leadName: lead.name,
+                              leadTreatment: lead.treatment
                             });
                             setIsRescheduleModalOpen(true);
                           }}
                           className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 cursor-pointer"
                         >
-                          Reschedule
+                          Next Follow-up
                         </button>
                         <button
                           onClick={() => completeFollowupTask(linkedFollowup.id, 'Completed via Lead Profile')}
@@ -519,11 +521,22 @@ export default function LeadDetailsDrawer() {
                       No pending follow-up task is currently scheduled for this lead.
                     </p>
                     <button
-                      onClick={() => updateLeadStatus(lead.id, 'Follow-up Required', { force: true })}
+                      onClick={() => {
+                        setRescheduleData({
+                          followupId: null,
+                          currentDate: new Date().toISOString().split('T')[0],
+                          currentTime: '11:00 AM',
+                          currentReason: `Follow-up for ${lead.treatment || 'Consultation'}`,
+                          leadId: lead.id,
+                          leadName: lead.name,
+                          leadTreatment: lead.treatment
+                        });
+                        setIsRescheduleModalOpen(true);
+                      }}
                       className="px-3 py-1.5 bg-[#1769D2] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1"
                     >
                       <Plus size={13} />
-                      <span>Schedule Follow-up Task</span>
+                      <span>Next Follow-up</span>
                     </button>
                   </div>
                 )}

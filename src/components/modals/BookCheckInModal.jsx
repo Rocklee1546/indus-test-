@@ -10,6 +10,7 @@ export default function BookCheckInModal() {
     checkInPatientModalData,
     setCheckInPatientModalData,
     doctors,
+    activeDoctors,
     addAppointment,
     selectedBranch,
     openBookAppointment,
@@ -26,6 +27,8 @@ export default function BookCheckInModal() {
   const [symptoms, setSymptoms] = useState('');
   const [notes, setNotes] = useState('');
 
+  const availableDoctors = activeDoctors && activeDoctors.length > 0 ? activeDoctors : doctors;
+
   useEffect(() => {
     if (isBookCheckInOpen) {
       setSelectedPatient(checkInPatientModalData || null);
@@ -33,19 +36,19 @@ export default function BookCheckInModal() {
       setNotes('');
       setWhenMode('now');
       // If patient has a preferred or assigned doctor, auto-select
-      const initialDoc = doctors.find(d => 
+      const initialDoc = availableDoctors.find(d => 
         d.id === checkInPatientModalData?.assignedDoctorId || 
         d.name === checkInPatientModalData?.referredDoctor
-      ) || doctors[0];
+      ) || availableDoctors[0];
       setSelectedDoctorId(initialDoc?.id || 'DOC-01');
       setSelectedChair('Chair 1');
       setVisitType('In Clinic');
     }
-  }, [isBookCheckInOpen, checkInPatientModalData, doctors]);
+  }, [isBookCheckInOpen, checkInPatientModalData, availableDoctors]);
 
   if (!isBookCheckInOpen) return null;
 
-  const currentDoctor = doctors.find(d => d.id === selectedDoctorId) || doctors[0];
+  const currentDoctor = availableDoctors.find(d => d.id === selectedDoctorId) || availableDoctors[0] || doctors[0];
   const activeVisit = selectedPatient ? getActiveVisitForPatient(selectedPatient.id, selectedPatient.name) : null;
 
   const quickSymptoms = [
@@ -153,8 +156,8 @@ export default function BookCheckInModal() {
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Attending Doctor</label>
               <select value={selectedDoctorId} onChange={e => setSelectedDoctorId(e.target.value)}
                 className="w-full text-xs font-bold bg-white border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] outline-none cursor-pointer focus:ring-2 focus:ring-blue-100">
-                {doctors.map(d => (
-                  <option key={d.id} value={d.id}>{d.name} ({d.specialty})</option>
+                {availableDoctors.map(d => (
+                  <option key={d.id} value={d.id}>{d.name} ({d.role || d.specialty})</option>
                 ))}
               </select>
             </div>

@@ -46,6 +46,7 @@ export default function BookAppointmentModal() {
     apptToBookPatient,
     setApptToBookPatient,
     doctors,
+    activeDoctors,
     appointments,
     addAppointment,
     selectedBranch,
@@ -82,7 +83,6 @@ export default function BookAppointmentModal() {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [chiefComplaint, setChiefComplaint] = useState('');
   const [apptNotes, setApptNotes] = useState('');
-  const [selectedChair, setSelectedChair] = useState('Chair 1');
 
   // Validation
   const [validationError, setValidationError] = useState('');
@@ -117,12 +117,12 @@ export default function BookAppointmentModal() {
       setApptDate(new Date().toISOString().split('T')[0]);
       setSelectedDoctorId(doctors[0]?.id || 'DOC-01');
       setVisitType('In Clinic');
-      setSelectedChair('Chair 1');
       setValidationError('');
     }
   }, [isBookApptSlotOpen, apptToBookPatient, leadToBookAppt, selectedBranch, doctors]);
 
-  const currentDoctor = doctors.find(d => d.id === selectedDoctorId) || doctors[0];
+  const availableDoctors = activeDoctors && activeDoctors.length > 0 ? activeDoctors : doctors;
+  const currentDoctor = availableDoctors.find(d => d.id === selectedDoctorId) || availableDoctors[0] || doctors[0];
 
   // Compute booked slots for selected doctor+date to disable them (Called unconditionally before early return)
   const bookedSlots = useMemo(() => {
@@ -204,7 +204,6 @@ export default function BookAppointmentModal() {
         date: apptDate,
         time: selectedSlot,
         duration,
-        chair: selectedChair,
         type: visitType,
         notes: apptNotes || 'Booked from Lead Pipeline.',
         status: 'Confirmed'
@@ -266,7 +265,6 @@ export default function BookAppointmentModal() {
         date: apptDate,
         time: selectedSlot,
         duration,
-        chair: selectedChair,
         type: visitType,
         status: 'Confirmed',
         symptoms: chiefComplaint,
@@ -543,37 +541,20 @@ export default function BookAppointmentModal() {
           {/* ── STEP 2: APPOINTMENT DETAILS ── */}
           {step === 2 && (
             <div className="p-6 space-y-4">
-              {/* Doctor & Chair */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Attending Doctor
-                  </label>
-                  <select
-                    value={selectedDoctorId}
-                    onChange={(e) => { setSelectedDoctorId(e.target.value); setSelectedSlot(null); }}
-                    className="w-full text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2.5 text-[#102A50] outline-none cursor-pointer focus:ring-2 focus:ring-blue-100"
-                  >
-                    {doctors.map(d => (
-                      <option key={d.id} value={d.id}>{d.name} – {d.specialty}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Chair
-                  </label>
-                  <select
-                    value={selectedChair}
-                    onChange={(e) => setSelectedChair(e.target.value)}
-                    className="w-full text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2.5 text-[#102A50] outline-none cursor-pointer focus:ring-2 focus:ring-blue-100"
-                  >
-                    <option>Chair 1</option>
-                    <option>Chair 2</option>
-                    <option>Chair 3</option>
-                    <option>Chair 4</option>
-                  </select>
-                </div>
+              {/* Attending Doctor */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Attending Doctor
+                </label>
+                <select
+                  value={selectedDoctorId}
+                  onChange={(e) => { setSelectedDoctorId(e.target.value); setSelectedSlot(null); }}
+                  className="w-full text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2.5 text-[#102A50] outline-none cursor-pointer focus:ring-2 focus:ring-blue-100"
+                >
+                  {availableDoctors.map(d => (
+                    <option key={d.id} value={d.id}>{d.name} – {d.role || d.specialty}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Visit Type */}
@@ -768,9 +749,8 @@ export default function BookAppointmentModal() {
                   </div>
 
                   <div className="bg-white rounded-xl p-3 border border-blue-100 space-y-0.5">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visit Details</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visit Type</div>
                     <div className="font-extrabold text-[#102A50]">{visitType}</div>
-                    <div className="text-slate-500">{selectedChair}</div>
                   </div>
                 </div>
 

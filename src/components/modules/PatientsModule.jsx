@@ -23,7 +23,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import DeleteConfirmationModal from '../modals/DeleteConfirmationModal';
-import { exportToCSV, exportToExcel } from '../../utils/exportUtils';
+import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/exportUtils';
 import {
   QUICK_DATE_OPTIONS,
   parsePatientDateToYMD,
@@ -162,7 +162,9 @@ export default function PatientsModule() {
 
     const dateStamp = new Date().toISOString().split('T')[0];
     if (format === 'excel') {
-      exportToExcel(headers, rows, `INDUS_Dental_Patients_${dateStamp}.xlsx`);
+      exportToExcel(headers, rows, `INDUS_Dental_Patients_${dateStamp}.xlsx`, 'Patients');
+    } else if (format === 'pdf') {
+      exportToPDF(headers, rows, `INDUS_Dental_Patients_${dateStamp}.pdf`, 'Patient Master Database');
     } else {
       exportToCSV(headers, rows, `INDUS_Dental_Patients_${dateStamp}.csv`);
     }
@@ -224,6 +226,13 @@ export default function PatientsModule() {
                 >
                   <FileText size={15} className="text-[#1769D2]" />
                   <span>Export to CSV (.csv)</span>
+                </button>
+                <button
+                  onClick={() => handleExport('pdf')}
+                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-800 transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <FileText size={15} className="text-rose-600" />
+                  <span>Export to PDF (.pdf)</span>
                 </button>
               </div>
             )}

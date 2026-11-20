@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   CalendarDays,
@@ -359,15 +359,13 @@ export default function AppointmentsModule() {
                 <th className="py-3 px-4">Doctor</th>
                 <th className="py-3 px-4">Date & Time</th>
                 <th className="py-3 px-4">Treatment / Reason</th>
-                <th className="py-3 px-4">Booking Source</th>
-                <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     <CalendarDays size={36} className="mx-auto text-slate-300 mb-2" />
                     <p className="font-semibold text-xs text-[#102A50]">No appointments found matching your filters.</p>
                     <button
@@ -436,21 +434,6 @@ export default function AppointmentsModule() {
                         <div className="font-semibold text-slate-800 truncate">{appt.treatmentType}</div>
                         {appt.notes && (
                           <div className="text-[10px] text-slate-400 truncate mt-0.5">{appt.notes}</div>
-                        )}
-                      </td>
-
-                      {/* Booking Source */}
-                      <td className="py-3.5 px-4 text-[11px] text-slate-600">
-                        {appt.bookingSource || 'Reception Desk'}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3.5 px-4">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${getStatusStyle(appt.status)}`}>
-                          {appt.status}
-                        </span>
-                        {appt.cancelReason && (
-                          <div className="text-[9px] text-red-500 mt-0.5 leading-tight">{appt.cancelReason}</div>
                         )}
                       </td>
 

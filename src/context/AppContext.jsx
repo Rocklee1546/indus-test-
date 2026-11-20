@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
+import { getDoctorInitials } from '../utils/doctorUtils';
 import {
   BRANCHES,
   DOCTORS,
@@ -15,7 +16,8 @@ import {
   INITIAL_FEEDBACK,
   LEAD_STATUSES,
   FOLLOWUP_CATEGORIES,
-  WHATSAPP_TEMPLATES
+  WHATSAPP_TEMPLATES,
+  INITIAL_TREATMENTS
 } from '../data/mockData';
 
 const AppContext = createContext();
@@ -155,6 +157,7 @@ export const AppProvider = ({ children }) => {
       role: activeDoc.role || activeDoc.specialty || 'Doctor',
       title: activeDoc.role || activeDoc.specialty || 'Chief Dental Surgeon',
       branchId: activeDoc.branchId || 'RS_PURAM',
+      initials: getDoctorInitials(activeDoc.name),
       avatar: activeDoc.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeDoc.name)}&background=1769d2&color=fff`,
       phone: activeDoc.phone,
       email: activeDoc.email,
@@ -173,13 +176,25 @@ export const AppProvider = ({ children }) => {
     setActiveDoctorId(doctorId);
     showToast(`Switched active profile to ${doc.name}`, 'success');
   };
-  const [leads, setLeads] = useState(() => loadFromStorage('indus_leads_v4', INITIAL_LEADS));
+  const [leads, setLeads] = useState(() => {
+    const raw = loadFromStorage('indus_leads_v4', INITIAL_LEADS);
+    const sourceMap = {
+      'Google Ads': 'Meta Ads',
+      'Website': 'WhatsApp',
+      'Walk-in': 'Walk In',
+      'Phone Calls': 'Referral',
+      'Referrals': 'Referral',
+      'Instagram': 'Meta Ads'
+    };
+    return (raw || []).map(l => (l.source && sourceMap[l.source] ? { ...l, source: sourceMap[l.source] } : l));
+  });
   const [patients, setPatients] = useState(() => loadFromStorage('indus_patients_v4', INITIAL_PATIENTS));
   const [appointments, setAppointments] = useState(() => loadFromStorage('indus_appointments_v4', INITIAL_APPOINTMENTS));
   const [followups, setFollowups] = useState(() => loadFromStorage('indus_followups_v4', INITIAL_FOLLOWUPS));
   const [labOrders, setLabOrders] = useState(INITIAL_LAB_ORDERS);
   const [invoices, setInvoices] = useState(() => loadFromStorage('indus_invoices_v4', INITIAL_INVOICES));
   const [treatmentPlans, setTreatmentPlans] = useState(() => loadFromStorage('indus_treatment_plans_v4', INITIAL_TREATMENT_PLANS));
+  const [treatments, setTreatments] = useState(() => loadFromStorage('indus_treatments_v2', INITIAL_TREATMENTS));
   const [inventory, setInventory] = useState(INITIAL_INVENTORY);
   const [prescriptions, setPrescriptions] = useState(INITIAL_PRESCRIPTIONS);
   const [campaigns, setCampaigns] = useState(INITIAL_CAMPAIGNS);
@@ -213,6 +228,14 @@ export const AppProvider = ({ children }) => {
     try { localStorage.setItem('indus_treatment_plans_v4', JSON.stringify(treatmentPlans)); } catch (e) {}
   }, [treatmentPlans]);
 
+  useEffect(() => {
+    try { localStorage.setItem('indus_treatments_v2', JSON.stringify(treatments)); } catch (e) {}
+  }, [treatments]);
+
+  const enabledTreatments = useMemo(() => {
+    return (treatments || []).filter(t => t.enabled !== false);
+  }, [treatments]);
+
   // Selection state for consultation and 360 profile
   const [activePatientId, setActivePatientId] = useState('IND-0292');
   const [patient360Data, setPatient360Data] = useState(null); // When opened in drawer/modal
@@ -229,6 +252,7 @@ export const AppProvider = ({ children }) => {
 
   // New Workflow Modals & Drawers
   const [selectedLeadId, setSelectedLeadId] = useState(null);
+  const [leadStatusFilter, setLeadStatusFilter] = useState('ALL');
   const [isLeadDetailsOpen, setIsLeadDetailsOpen] = useState(false);
   const [whatsAppData, setWhatsAppData] = useState(null);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
@@ -644,7 +668,13 @@ export const AppProvider = ({ children }) => {
         address: extraData.address || 'Coimbatore, Tamil Nadu',
         emergencyContact: extraData.emergencyContact || '',
         preferredBranch: lead.branchId || 'RS_PURAM',
-        referredBy: `${lead.source || 'Lead'} (Converted Lead ${lead.id})`,
+        referredBy: (() => {
+          const s = (lead.source || '').toLowerCase();
+          if (s.includes('walk')) return 'Walk-in';
+          if (s.includes('refer')) return 'Doctor Referral';
+          if (s.includes('what')) return 'WhatsApp';
+          return 'Meta Ads';
+        })(),
         registeredDate: new Date().toISOString().split('T')[0],
         familyRelation: 'Self',
         allergies: extraData.allergies ? [extraData.allergies] : ['None reported'],
@@ -833,8 +863,48 @@ export const AppProvider = ({ children }) => {
 
   // Action: Add Patient Directly (From Modal)
   const addPatient = (patientData) => {
+    // Validate mandatory full name
+    const rawName = (patientData.name || '').replace(/^(Mr|Mrs|Ms|Dr|Master)\.?\s+/i, '').trim();
+    if (!rawName) {
+      showToast('Validation Error: Patient full name is required.', 'error');
+      return false;
+    }
+    if (!/^[a-zA-Z\s'-]+$/.test(rawName)) {
+      showToast('Validation Error: Patient name can only contain letters, spaces, hyphens, and apostrophes.', 'error');
+      return false;
+    }
+
+    // Validate phone: exactly 10 digits
+    const digitsPhone = (patientData.phone || '').replace(/\D/g, '');
+    if (!digitsPhone || digitsPhone.length !== 10) {
+      showToast('Validation Error: Phone number must be exactly 10 digits.', 'error');
+      return false;
+    }
+
+    // Validate email if provided
+    if (patientData.email && patientData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(patientData.email.trim())) {
+        showToast('Validation Error: Please enter a valid email address.', 'error');
+        return false;
+      }
+    }
+
+    // Allowed referredBy values
+    const validReferredBy = ['Meta Ads', 'Doctor Referral', 'Walk-in', 'WhatsApp'];
+    let safeReferredBy = patientData.referredBy;
+    if (!validReferredBy.includes(safeReferredBy)) {
+      if (safeReferredBy === 'Google Ads' || safeReferredBy === 'Meta / Instagram Ads') safeReferredBy = 'Meta Ads';
+      else if (safeReferredBy === 'WhatsApp Campaign') safeReferredBy = 'WhatsApp';
+      else if (safeReferredBy === 'Direct Walk-in') safeReferredBy = 'Walk-in';
+      else safeReferredBy = 'Meta Ads';
+    }
+
     const newPatient = {
       ...patientData,
+      phone: digitsPhone,
+      email: (patientData.email || '').trim(),
+      referredBy: safeReferredBy,
       id: patientData.id || `IND-0${Math.floor(300 + Math.random() * 700)}`,
       registeredDate: new Date().toISOString().split('T')[0],
       createdAt: new Date().toISOString(),
@@ -908,12 +978,18 @@ export const AppProvider = ({ children }) => {
   // ── Delete Appointment (soft-marks as deleted, removes from lists) ─────────
   const deleteAppointment = (apptId) => {
     setAppointments(prev => prev.filter(a => a.id !== apptId));
+    // Clean up associated reminders as well
+    setFollowups(prev => prev.filter(f => f.appointmentId !== apptId));
     showToast('Appointment deleted successfully.', 'success');
   };
 
   // ── Delete Follow-up (hard remove from list) ──────────────────────────────
   const deleteFollowup = (followupId) => {
-    setFollowups(prev => prev.filter(f => f.id !== followupId));
+    if (Array.isArray(followupId)) {
+      setFollowups(prev => prev.filter(f => !followupId.includes(f.id)));
+    } else {
+      setFollowups(prev => prev.filter(f => f.id !== followupId));
+    }
     showToast('Follow-up record deleted.', 'success');
   };
 
@@ -1038,6 +1114,15 @@ export const AppProvider = ({ children }) => {
       }
       return d;
     }));
+
+    if (doctorId === activeDoctorId && updatedFields.status === 'Inactive') {
+      const otherActive = doctors.find(d => d.id !== doctorId && (d.status || 'Active') === 'Active');
+      if (otherActive) {
+        setActiveDoctorId(otherActive.id);
+        showToast(`Switched active profile to ${otherActive.name}`, 'info');
+      }
+    }
+
     showToast('Doctor details updated successfully!', 'success');
   };
 
@@ -1089,6 +1174,70 @@ export const AppProvider = ({ children }) => {
 
     showToast(`Doctor ${doc.name} deleted successfully.`, 'success');
     return true;
+  };
+
+  // ── Treatment Management Configuration ─────────────────────────────────────
+  const addTreatment = (trtData) => {
+    const newId = `TRT-${Date.now()}`;
+    const newTrt = {
+      id: newId,
+      name: trtData.name?.trim(),
+      category: trtData.category?.trim() || 'General Dentistry',
+      enabled: trtData.enabled !== undefined ? trtData.enabled : true,
+      createdAt: new Date().toISOString()
+    };
+    setTreatments(prev => [...prev, newTrt]);
+    showToast(`Treatment "${newTrt.name}" added successfully!`, 'success');
+    return newTrt;
+  };
+
+  const updateTreatment = (trtId, updatedFields) => {
+    const prevTrt = treatments.find(t => t.id === trtId);
+    setTreatments(prev => prev.map(t => {
+      if (t.id === trtId) {
+        return { ...t, ...updatedFields };
+      }
+      return t;
+    }));
+    if (updatedFields.name && prevTrt && prevTrt.name !== updatedFields.name) {
+      setLeads(prev => prev.map(l => {
+        if (l.treatment === prevTrt.name) {
+          return { ...l, treatment: updatedFields.name };
+        }
+        return l;
+      }));
+    }
+    showToast('Treatment details updated successfully!', 'success');
+    return true;
+  };
+
+  const toggleTreatmentStatus = (trtId) => {
+    setTreatments(prev => prev.map(t => {
+      if (t.id === trtId) {
+        const nextState = !t.enabled;
+        showToast(`Treatment "${t.name}" is now ${nextState ? 'Enabled' : 'Disabled'}.`, 'info');
+        return { ...t, enabled: nextState };
+      }
+      return t;
+    }));
+  };
+
+  const deleteTreatment = (trtId) => {
+    const trt = treatments.find(t => t.id === trtId);
+    setTreatments(prev => prev.filter(t => t.id !== trtId));
+    showToast(`Treatment "${trt?.name || 'Treatment'}" deleted successfully.`, 'info');
+    return true;
+  };
+
+  const moveTreatment = (index, direction) => {
+    setTreatments(prev => {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const updated = [...prev];
+      const item = updated.splice(index, 1)[0];
+      updated.splice(targetIndex, 0, item);
+      return updated;
+    });
   };
 
   // Record Payment on Invoice
@@ -1295,7 +1444,10 @@ export const AppProvider = ({ children }) => {
       createdAt: new Date().toISOString()
     };
 
-    setFollowups(prev => [reminder1DayBefore, reminderDayOfVisit, ...prev]);
+    setFollowups(prev => {
+      const filtered = prev.filter(f => f.appointmentId !== newAppt.id);
+      return [reminder1DayBefore, reminderDayOfVisit, ...filtered];
+    });
 
     showToast(`Appointment confirmed for ${newAppt.patientName} (${newAppt.date} at ${newAppt.time}). Reminders scheduled!`);
     return newAppt;
@@ -1906,6 +2058,8 @@ export const AppProvider = ({ children }) => {
         invoices,
         filteredInvoices,
         treatmentPlans,
+        treatments,
+        enabledTreatments,
         inventory,
         filteredInventory,
         prescriptions,
@@ -1977,6 +2131,11 @@ export const AppProvider = ({ children }) => {
         updateDoctor,
         toggleDoctorStatus,
         deleteDoctor,
+        addTreatment,
+        updateTreatment,
+        toggleTreatmentStatus,
+        deleteTreatment,
+        moveTreatment,
         transferStock,
         savePrescription,
 
@@ -2032,6 +2191,8 @@ export const AppProvider = ({ children }) => {
         // Detail Drawer & Workflow Modals
         selectedLeadId,
         setSelectedLeadId,
+        leadStatusFilter,
+        setLeadStatusFilter,
         isLeadDetailsOpen,
         setIsLeadDetailsOpen,
         whatsAppData,

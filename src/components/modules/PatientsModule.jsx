@@ -154,7 +154,7 @@ export default function PatientsModule() {
       phone: p.phone,
       email: p.email || '—',
       bloodGroup: p.bloodGroup || '—',
-      referredBy: p.referredBy || 'Direct Walk-in',
+      referredBy: p.referredBy || 'Walk-in',
       registeredDate: parsePatientDateToYMD(p),
       medicalAlerts: p.medicalAlerts || (p.allergies ? p.allergies.join(', ') : 'None'),
       financialStatus: p.outstandingBalance > 0 ? `Due: ₹${p.outstandingBalance}` : 'Settled'
@@ -414,11 +414,11 @@ export default function PatientsModule() {
             <thead className="bg-[#F8FAFC] border-b border-slate-200/80 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
               <tr>
                 <th className="py-3 px-4">UHID & Name</th>
-                <th className="py-3 px-4">Demographics</th>
+                <th className="py-3 px-4">Age</th>
+                <th className="py-3 px-4">Gender</th>
                 <th className="py-3 px-4">Contact</th>
-                <th className="py-3 px-4">Registration & Referral</th>
+                <th className="py-3 px-4">Registration Date</th>
                 <th className="py-3 px-4">Medical Alerts</th>
-                <th className="py-3 px-4">Financial Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -478,20 +478,21 @@ export default function PatientsModule() {
                       </td>
 
                       <td className="py-3.5 px-4" onClick={() => setPatient360Data(patient)}>
-                        <div className="font-semibold text-slate-800">{patient.gender}, {patient.age} yrs</div>
-                        <div className="text-[10px] text-slate-400">Blood: <b className="text-slate-600">{patient.bloodGroup}</b></div>
+                        <div className="font-semibold text-slate-800">
+                          {patient.age ? (String(patient.age).includes('yr') ? patient.age : `${patient.age} yrs`) : '—'}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4" onClick={() => setPatient360Data(patient)}>
+                        <div className="font-semibold text-slate-800">{patient.gender || '—'}</div>
                       </td>
 
                       <td className="py-3.5 px-4 font-semibold text-slate-700">
                         <div>{patient.phone}</div>
-                        {patient.email && <div className="text-[10px] text-slate-400">{patient.email}</div>}
                       </td>
 
                       <td className="py-3.5 px-4" onClick={() => setPatient360Data(patient)}>
                         <div className="font-bold text-[#102A50]">{regDate}</div>
-                        <div className="text-[10px] text-slate-500 font-medium truncate max-w-[150px]">
-                          Ref: {patient.referredBy || 'Direct'}
-                        </div>
                       </td>
 
                       <td className="py-3.5 px-4">
@@ -505,13 +506,6 @@ export default function PatientsModule() {
                             No Allergies
                           </span>
                         )}
-                      </td>
-
-                      <td className="py-3.5 px-4" onClick={() => setPatient360Data(patient)}>
-                        <div className="font-bold text-slate-900">₹{patient.totalBilled?.toLocaleString()}</div>
-                        <div className={`text-[10px] font-bold ${patient.outstandingBalance > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          {patient.outstandingBalance > 0 ? `Due: ₹${patient.outstandingBalance}` : 'Settled'}
-                        </div>
                       </td>
 
                       <td className="py-3.5 px-4 text-right">

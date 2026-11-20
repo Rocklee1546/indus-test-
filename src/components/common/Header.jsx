@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp, USERS } from '../../context/AppContext';
+import { getDoctorInitials } from '../../utils/doctorUtils';
 import {
   Search,
   Building2,
@@ -15,7 +16,8 @@ import {
   ArrowRight,
   Check,
   Settings,
-  Stethoscope
+  Stethoscope,
+  Zap
 } from 'lucide-react';
 
 // ── Live date helper (uses local calendar date, no UTC offset issues) ─────────
@@ -251,15 +253,15 @@ export default function Header() {
           <span>{dateLabel}</span>
         </div>
 
-        {/* Quick Action Button */}
+        {/* Quick Action Button - Matching Reference Image 1 */}
         <div className="relative" ref={quickMenuRef}>
           <button
             onClick={() => setShowQuickMenu(v => !v)}
-            className="flex items-center gap-2 bg-[#1769D2] hover:bg-blue-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-sm transition-all cursor-pointer"
+            className="flex items-center gap-2 bg-gradient-to-r from-[#1769D2] via-[#1a73e8] to-[#1258b3] hover:from-blue-700 hover:to-blue-800 text-white font-extrabold text-xs px-4 py-2 rounded-xl shadow-md shadow-blue-500/25 active:scale-95 transition-all duration-150 cursor-pointer border border-blue-400/30"
           >
-            <Plus size={15} />
+            <Zap size={14} className="fill-white/20 text-white shrink-0" />
             <span>Quick Action</span>
-            <ChevronDown size={14} />
+            <ChevronDown size={14} className="text-white/80 shrink-0" />
           </button>
 
           {showQuickMenu && (
@@ -343,12 +345,10 @@ export default function Header() {
             title="Click to Switch Doctor Profile"
           >
             <div className="relative shrink-0">
-              <img
-                src={currentUser.avatar}
-                alt={currentUser.name}
-                className="w-9 h-9 rounded-full object-cover ring-2 ring-blue-500/25 group-hover:ring-blue-500 transition-all"
-              />
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white" />
+              <div className="w-9 h-9 rounded-full bg-blue-50 border-2 border-blue-500/30 text-[#1769D2] font-black text-xs flex items-center justify-center tracking-wider group-hover:border-[#1769D2] group-hover:bg-[#1769D2] group-hover:text-white transition-all shadow-xs">
+                {currentUser.initials || getDoctorInitials(currentUser.name)}
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white" />
             </div>
             <div className="hidden lg:flex flex-col">
               <div className="flex items-center gap-1">
@@ -408,19 +408,15 @@ export default function Header() {
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden ${
+                          className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs shrink-0 tracking-wider transition-all ${
                             isCurrent
-                              ? 'bg-[#1769D2] text-white ring-2 ring-blue-400'
+                              ? 'bg-[#1769D2] text-white ring-2 ring-blue-300'
                               : isInactive
-                              ? 'bg-slate-200 text-slate-500'
-                              : 'bg-blue-100 text-[#1769D2]'
+                              ? 'bg-slate-100 text-slate-400'
+                              : 'bg-blue-50 text-[#1769D2] border border-blue-200'
                           }`}
                         >
-                          {doc.avatar ? (
-                            <img src={doc.avatar} alt={doc.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <span>{doc.name.replace('Dr. ', '').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</span>
-                          )}
+                          {getDoctorInitials(doc.name)}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">

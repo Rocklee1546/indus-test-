@@ -32,21 +32,11 @@ export default function WhatsAppComposerModal() {
   const [nextActionDate, setNextActionDate] = useState('');
   const [hasOpenedWhatsApp, setHasOpenedWhatsApp] = useState(false);
 
-  useEffect(() => {
-    if (whatsAppData && whatsappTemplates.length > 0) {
-      const initialTplId = whatsAppData.defaultTemplateId || 'TMP-01';
-      setSelectedTemplateId(initialTplId);
-      renderTemplate(initialTplId, whatsAppData);
-      setHasOpenedWhatsApp(false);
-      setCommunicationNotes('');
-    }
-  }, [whatsAppData, isWhatsAppModalOpen]);
-
-  if (!isWhatsAppModalOpen || !whatsAppData) return null;
-
   const renderTemplate = (tplId, data) => {
-    const tpl = whatsappTemplates.find(t => t.id === tplId) || whatsappTemplates[0];
-    let text = tpl.text;
+    if (!data) return;
+    const tpl = (whatsappTemplates || []).find(t => t.id === tplId) || (whatsappTemplates || [])[0];
+    if (!tpl) return;
+    let text = tpl.text || '';
     text = text.replace(/\{name\}/g, data.recipientName || 'Valued Patient');
     text = text.replace(/\{treatment\}/g, data.treatment || 'Dental Consultation');
     text = text.replace(/\{clinic_name\}/g, 'INDUS Dental Coimbatore');
@@ -56,14 +46,25 @@ export default function WhatsAppComposerModal() {
     setComposedMessage(text);
   };
 
+  useEffect(() => {
+    if (isWhatsAppModalOpen && whatsAppData && whatsappTemplates?.length > 0) {
+      const initialTplId = whatsAppData.defaultTemplateId || 'TMP-01';
+      setSelectedTemplateId(initialTplId);
+      renderTemplate(initialTplId, whatsAppData);
+      setHasOpenedWhatsApp(false);
+      setCommunicationNotes('');
+    }
+  }, [whatsAppData, isWhatsAppModalOpen, whatsappTemplates]);
+
   const handleTemplateChange = (newTplId) => {
     setSelectedTemplateId(newTplId);
     renderTemplate(newTplId, whatsAppData);
   };
 
-  const cleanPhone = (whatsAppData.phone || '').replace(/\D/g, '');
+  const cleanPhone = (whatsAppData?.phone || '').replace(/\D/g, '');
 
   const handleOpenWhatsAppChat = () => {
+    if (!whatsAppData) return;
     const url = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(composedMessage)}`;
     window.open(url, '_blank');
     setHasOpenedWhatsApp(true);
@@ -72,8 +73,8 @@ export default function WhatsAppComposerModal() {
 
   const handleRecordCommunication = (e) => {
     e.preventDefault();
-    if (whatsAppData.leadId) {
-      const selectedTpl = whatsappTemplates.find(t => t.id === selectedTemplateId);
+    if (whatsAppData?.leadId) {
+      const selectedTpl = (whatsappTemplates || []).find(t => t.id === selectedTemplateId);
       logLeadCommunication(whatsAppData.leadId, {
         channel: 'WhatsApp',
         outcome: outcomeStatus,
@@ -87,6 +88,8 @@ export default function WhatsAppComposerModal() {
     }
     setIsWhatsAppModalOpen(false);
   };
+
+  if (!isWhatsAppModalOpen || !whatsAppData) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">

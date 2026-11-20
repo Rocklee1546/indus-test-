@@ -1,42 +1,124 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { X, UserPlus, Phone, Mail, Building2, Tag, Calendar, AlertCircle } from 'lucide-react';
+import { X, UserPlus, Phone, Mail, AlertCircle } from 'lucide-react';
 
 export default function AddLeadModal() {
-  const { isAddLeadOpen, setIsAddLeadOpen, addLead, branches, selectedBranch } = useApp();
+  const { isAddLeadOpen, setIsAddLeadOpen, addLead, selectedBranch, enabledTreatments } = useApp();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [altPhone, setAltPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [treatment, setTreatment] = useState('Dental Implants');
+  const [treatment, setTreatment] = useState(enabledTreatments?.[0]?.name || 'Dental Implants');
   const [branchId, setBranchId] = useState(selectedBranch === 'ALL' ? 'RS_PURAM' : selectedBranch);
-  const [source, setSource] = useState('Google Ads');
+  const [source, setSource] = useState('Meta Ads');
   const [priority, setPriority] = useState('Hot');
   const [nextFollowup, setNextFollowup] = useState('2026-11-07T10:00');
   const [remarks, setRemarks] = useState('');
 
+  useEffect(() => {
+    if (enabledTreatments && enabledTreatments.length > 0) {
+      if (!enabledTreatments.some(t => t.name === treatment)) {
+        setTreatment(enabledTreatments[0].name);
+      }
+    }
+  }, [enabledTreatments]);
+
+  // Validation States
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+
   if (!isAddLeadOpen) return null;
+
+  // Validation Logic
+  const validateField = (field, value) => {
+    let error = '';
+    const trimmed = (value || '').trim();
+
+    if (field === 'name') {
+      if (!trimmed) {
+        error = 'Patient / Lead Name is required.';
+      } else if (!/^[a-zA-Z\s'-]+$/.test(trimmed)) {
+        error = 'Name can only contain letters, spaces, hyphens, and apostrophes.';
+      } else if (trimmed.length < 2) {
+        error = 'Name must be at least 2 characters long.';
+      }
+    }
+
+    if (field === 'phone') {
+      const digitsOnly = (value || '').replace(/\D/g, '');
+      if (!digitsOnly) {
+        error = 'Mobile number is required.';
+      } else if (digitsOnly.length !== 10) {
+        error = `Mobile number must be exactly 10 digits (${digitsOnly.length}/10 entered).`;
+      }
+    }
+
+    if (field === 'email') {
+      if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+        error = 'Please enter a valid email address (e.g. name@domain.com).';
+      }
+    }
+
+    return error;
+  };
+
+  const handleNameChange = (e) => {
+    const val = e.target.value;
+    setName(val);
+    if (touched.name) {
+      setErrors(prev => ({ ...prev, name: validateField('name', val) }));
+    }
+  };
+
+  const handlePhoneChange = (e) => {
+    // Only accept digits and limit to 10 characters
+    const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setPhone(digitsOnly);
+    if (touched.phone) {
+      setErrors(prev => ({ ...prev, phone: validateField('phone', digitsOnly) }));
+    }
+  };
+
+  const handleEmailChange = (e) => {
+    const val = e.target.value;
+    setEmail(val);
+    if (touched.email) {
+      setErrors(prev => ({ ...prev, email: validateField('email', val) }));
+    }
+  };
+
+  const handleBlur = (field) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    const val = field === 'name' ? name : field === 'phone' ? phone : email;
+    setErrors(prev => ({ ...prev, [field]: validateField(field, val) }));
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!name.trim() || !phone.trim()) {
-      alert('Please provide lead name and mobile number.');
+
+    const nameErr = validateField('name', name);
+    const phoneErr = validateField('phone', phone);
+    const emailErr = validateField('email', email);
+
+    const newErrors = { name: nameErr, phone: phoneErr, email: emailErr };
+    setErrors(newErrors);
+    setTouched({ name: true, phone: true, email: true });
+
+    if (nameErr || phoneErr || emailErr) {
       return;
     }
 
     addLead({
-      name,
-      phone,
-      altPhone,
-      email,
+      name: name.trim(),
+      phone: phone.trim(),
+      email: email.trim(),
       treatment,
       branchId,
       source,
       priority,
       assignedTo: 'Sneha R (Front Desk)',
       nextFollowup,
-      remarks: remarks || 'Lead captured via CRM form.'
+      remarks: remarks.trim() || 'Lead captured via CRM form.'
     });
 
     setIsAddLeadOpen(false);
@@ -44,11 +126,14 @@ export default function AddLeadModal() {
     setPhone('');
     setEmail('');
     setRemarks('');
+    setErrors({});
+    setTouched({});
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
       <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-lg w-full overflow-hidden">
+        {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
@@ -67,19 +152,32 @@ export default function AddLeadModal() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-3.5">
+        <form onSubmit={handleSubmit} className="p-6 space-y-3.5" noValidate>
+          {/* Patient / Lead Name */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Patient / Lead Name *</label>
             <input
               type="text"
               placeholder="e.g. Arun Kumar"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] focus:ring-2 focus:ring-blue-100 outline-none"
+              onChange={handleNameChange}
+              onBlur={() => handleBlur('name')}
+              className={`w-full text-xs font-bold rounded-xl px-3 py-2 text-[#102A50] outline-none transition-all ${
+                errors.name
+                  ? 'bg-rose-50/30 border-2 border-rose-400 focus:ring-2 focus:ring-rose-100'
+                  : 'bg-[#F8FAFC] border border-slate-200 focus:ring-2 focus:ring-blue-100 focus:bg-white'
+              }`}
               required
             />
+            {errors.name && (
+              <p className="text-[11px] font-semibold text-rose-500 flex items-center gap-1 mt-1 animate-in fade-in">
+                <AlertCircle size={12} className="shrink-0" />
+                <span>{errors.name}</span>
+              </p>
+            )}
           </div>
 
+          {/* Mobile & Email */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Mobile Number *</label>
@@ -87,48 +185,72 @@ export default function AddLeadModal() {
                 <Phone size={13} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="tel"
-                  placeholder="98430 12845"
+                  placeholder="9843012845"
+                  maxLength={10}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-[#102A50] focus:ring-2 focus:ring-blue-100 outline-none"
+                  onChange={handlePhoneChange}
+                  onBlur={() => handleBlur('phone')}
+                  className={`w-full text-xs font-bold rounded-xl pl-8 pr-3 py-2 text-[#102A50] outline-none transition-all ${
+                    errors.phone
+                      ? 'bg-rose-50/30 border-2 border-rose-400 focus:ring-2 focus:ring-rose-100'
+                      : 'bg-[#F8FAFC] border border-slate-200 focus:ring-2 focus:ring-blue-100 focus:bg-white'
+                  }`}
                   required
                 />
               </div>
+              {errors.phone ? (
+                <p className="text-[11px] font-semibold text-rose-500 flex items-center gap-1 mt-1 animate-in fade-in">
+                  <AlertCircle size={12} className="shrink-0" />
+                  <span>{errors.phone}</span>
+                </p>
+              ) : (
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">10-digit mobile number</p>
+              )}
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Email Address <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
               <div className="relative">
                 <Mail size={13} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   placeholder="arun@gmail.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full text-xs font-medium bg-[#F8FAFC] border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-100 outline-none"
+                  onChange={handleEmailChange}
+                  onBlur={() => handleBlur('email')}
+                  className={`w-full text-xs font-medium rounded-xl pl-8 pr-3 py-2 text-slate-800 outline-none transition-all ${
+                    errors.email
+                      ? 'bg-rose-50/30 border-2 border-rose-400 focus:ring-2 focus:ring-rose-100'
+                      : 'bg-[#F8FAFC] border border-slate-200 focus:ring-2 focus:ring-blue-100 focus:bg-white'
+                  }`}
                 />
               </div>
+              {errors.email && (
+                <p className="text-[11px] font-semibold text-rose-500 flex items-center gap-1 mt-1 animate-in fade-in">
+                  <AlertCircle size={12} className="shrink-0" />
+                  <span>{errors.email}</span>
+                </p>
+              )}
             </div>
           </div>
 
+          {/* Interested Treatment */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Interested Treatment</label>
             <select
               value={treatment}
               onChange={(e) => setTreatment(e.target.value)}
-              className="w-full text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] outline-none cursor-pointer"
+              className="w-full text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] outline-none cursor-pointer focus:ring-2 focus:ring-blue-100"
             >
-              <option value="Dental Implants">Dental Implants</option>
-              <option value="Clear Aligners / Invisible Braces">Clear Aligners / Invisible Braces</option>
-              <option value="Root Canal Treatment">Root Canal Treatment</option>
-              <option value="Teeth Whitening">Teeth Whitening</option>
-              <option value="Zirconia Crown / Bridge">Zirconia Crown / Bridge</option>
-              <option value="Pediatric Dental Care">Pediatric Dental Care</option>
-              <option value="Tooth Extraction">Tooth Extraction</option>
-              <option value="Full Mouth Rehabilitation">Full Mouth Rehabilitation</option>
+              {(enabledTreatments || []).map(t => (
+                <option key={t.id} value={t.name}>{t.name}</option>
+              ))}
             </select>
           </div>
 
+          {/* Lead Source, Priority, Next Followup */}
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Lead Source</label>
@@ -137,13 +259,10 @@ export default function AddLeadModal() {
                 onChange={(e) => setSource(e.target.value)}
                 className="w-full text-xs font-semibold bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-[#102A50] outline-none cursor-pointer"
               >
-                <option value="Google Ads">Google Ads</option>
-                <option value="Meta Ads">Meta / Insta Ads</option>
-                <option value="Website">Website</option>
+                <option value="Meta Ads">Meta Ads</option>
+                <option value="Walk In">Walk In</option>
                 <option value="WhatsApp">WhatsApp</option>
-                <option value="Phone Calls">Phone Call</option>
-                <option value="Walk-in">Walk-in</option>
-                <option value="Referrals">Referrals</option>
+                <option value="Referral">Referral</option>
               </select>
             </div>
 
@@ -171,6 +290,7 @@ export default function AddLeadModal() {
             </div>
           </div>
 
+          {/* Remarks */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Enquiry Remarks & Patient Needs</label>
             <textarea
@@ -182,6 +302,7 @@ export default function AddLeadModal() {
             />
           </div>
 
+          {/* Actions */}
           <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2.5">
             <button
               type="button"

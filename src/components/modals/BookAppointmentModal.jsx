@@ -57,7 +57,8 @@ export default function BookAppointmentModal() {
     leads,
     addPatient,
     updateLeadStatus,
-    showToast
+    showToast,
+    enabledTreatments
   } = useApp();
 
   const [step, setStep] = useState(1); // 1 = Patient, 2 = Details, 3 = Review
@@ -469,24 +470,6 @@ export default function BookAppointmentModal() {
                         />
                       </div>
                     </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                        Preferred Branch
-                      </label>
-                      <select
-                        value={newPatientBranch}
-                        onChange={(e) => setNewPatientBranch(e.target.value)}
-                        className="w-full text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[#102A50] outline-none cursor-pointer focus:ring-2 focus:ring-blue-100"
-                      >
-                        <option value="RS_PURAM">INDUS Dental – RS Puram</option>
-                        <option value="GANDHIPURAM">INDUS Dental – Gandhipuram</option>
-                        <option value="PEELAMEDU">INDUS Dental – Peelamedu</option>
-                        <option value="SAIBABA_COLONY">INDUS Dental – Saibaba Colony</option>
-                        <option value="SARAVANAMPATTI">INDUS Dental – Saravanampatti</option>
-                        <option value="SINGANALLUR">INDUS Dental – Singanallur</option>
-                      </select>
-                    </div>
                   </div>
 
                   {/* Matching Patient warning */}
@@ -687,15 +670,21 @@ export default function BookAppointmentModal() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Chief Complaint
+                    Chief Complaint / Treatment
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Throbbing molar pain"
+                    list="treatments-datalist-appt"
+                    placeholder="e.g. Dental Implants, Clear Aligners"
                     value={chiefComplaint}
                     onChange={(e) => setChiefComplaint(e.target.value)}
                     className="w-full text-xs font-medium bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-100 outline-none"
                   />
+                  <datalist id="treatments-datalist-appt">
+                    {(enabledTreatments || []).map(t => (
+                      <option key={t.id} value={t.name}>{t.category}</option>
+                    ))}
+                  </datalist>
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">

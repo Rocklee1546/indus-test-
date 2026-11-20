@@ -216,7 +216,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 scrollbar-thin relative z-10">
         {/* Dashboard - Standalone */}
         {renderNavItem({ id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard })}
 
@@ -237,6 +237,48 @@ export default function Sidebar() {
 
         {/* Settings - Standalone */}
         {renderNavItem({ id: 'settings', path: '/settings', label: 'Settings', icon: Settings })}
+      </div>
+
+      {/* Decorative Blue Wave Design at Bottom (Matching Reference Image 1) */}
+      <div className="absolute bottom-0 left-0 right-0 pointer-events-none overflow-hidden h-36 z-0 select-none">
+        <svg
+          className="absolute bottom-0 left-0 w-full h-full"
+          viewBox="0 0 256 140"
+          preserveAspectRatio="none"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id="sidebarWave1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#0B3C7A" stopOpacity="0.85" />
+              <stop offset="100%" stopColor="#104E9E" stopOpacity="0.95" />
+            </linearGradient>
+            <linearGradient id="sidebarWave2" x1="0%" y1="100%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#1256B0" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#1E75E2" stopOpacity="0.85" />
+            </linearGradient>
+            <linearGradient id="sidebarWave3" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#1769D2" stopOpacity="0.65" />
+              <stop offset="50%" stopColor="#258BF5" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#0B3C7A" stopOpacity="0.9" />
+            </linearGradient>
+          </defs>
+          {/* Layer 1: Deep blue sweeping curve */}
+          <path
+            d="M-20 140 C40 100, 100 135, 180 85 C220 60, 260 75, 290 60 L290 140 Z"
+            fill="url(#sidebarWave1)"
+          />
+          {/* Layer 2: Mid bright blue crest */}
+          <path
+            d="M-20 140 C30 115, 80 75, 150 95 C200 110, 240 70, 280 50 L280 140 Z"
+            fill="url(#sidebarWave2)"
+          />
+          {/* Layer 3: Smooth highlight foreground wave */}
+          <path
+            d="M-10 140 C50 130, 90 90, 160 110 C210 125, 245 105, 280 85 L280 140 Z"
+            fill="url(#sidebarWave3)"
+          />
+        </svg>
       </div>
     </aside>
   );

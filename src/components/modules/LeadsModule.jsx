@@ -35,6 +35,86 @@ import {
   isDateWithinRange
 } from '../../utils/dateFilterUtils';
 
+// ── Platform Brand Icons for Lead Sources ──────────────────────────────────
+function MetaIcon({ className = "w-4 h-4 shrink-0" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" title="Meta Ads">
+      <path
+        d="M23.998 12c0-3.95-2.07-6.5-5.22-6.5-2.28 0-4.04 1.35-5.28 3.32-1.24-1.97-3-3.32-5.28-3.32-3.15 0-5.22 2.55-5.22 6.5 0 4.15 2.65 8.5 6.64 11.51 1.25.94 2.58 1.49 3.86 1.49 1.28 0 2.61-.55 3.86-1.49 3.99-3.01 6.64-7.36 6.64-11.51zm-10.4 4.54c-.95 1.54-2.12 2.54-3.35 2.54-1.6 0-2.65-1.58-2.65-4.14 0-2.3 1.05-3.88 2.65-3.88 1.23 0 2.4 1 3.35 2.54v2.94zm2.8 0v-2.94c.95-1.54 2.12-2.54 3.35-2.54 1.6 0 2.65 1.58 2.65 3.88 0 2.56-1.05 4.14-2.65 4.14-1.23 0-2.4-1-3.35-2.54z"
+        fill="#0668E1"
+      />
+    </svg>
+  );
+}
+
+function WhatsAppIcon({ className = "w-4 h-4 shrink-0" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" title="WhatsApp">
+      <circle cx="12" cy="12" r="11" fill="#25D366" />
+      <path
+        d="M17.2 14.3c-.27-.14-1.6-.79-1.85-.88-.25-.09-.43-.14-.61.14-.18.27-.7.88-.86 1.06-.16.18-.32.2-.59.07-.27-.14-1.15-.42-2.18-1.34-.8-.72-1.35-1.6-1.51-1.87-.16-.27-.02-.42.12-.55.12-.12.27-.32.41-.48.14-.16.18-.27.27-.45.09-.18.05-.34-.02-.48-.07-.14-.61-1.48-.84-2.02-.22-.53-.45-.46-.61-.47-.16-.01-.34-.01-.52-.01-.18 0-.48.07-.73.34-.25.27-.96.94-.96 2.29s.98 2.65 1.12 2.84c.14.18 1.93 2.95 4.68 4.13.65.28 1.16.45 1.56.58.66.21 1.25.18 1.72.11.53-.08 1.62-.66 1.85-1.3.23-.64.23-1.19.16-1.3-.07-.12-.25-.19-.52-.33z"
+        fill="white"
+      />
+    </svg>
+  );
+}
+
+function WalkInIcon({ className = "w-4 h-4 shrink-0" }) {
+  return (
+    <div className="w-4 h-4 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-2xs" title="Walk In">
+      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="12" cy="4" r="3" />
+        <path d="M14.5 9.5 16 8l3 3-1.5 1.5-2-2-1 3.5 2.5 4-1.7 1-2.8-4.5-.5-2.5-2 2V19h-2v-6.5l3.5-3.5 1 .5Z" />
+      </svg>
+    </div>
+  );
+}
+
+function ReferralIcon({ className = "w-4 h-4 shrink-0" }) {
+  return (
+    <div className="w-4 h-4 rounded-full bg-purple-100 text-[#7C3AED] flex items-center justify-center shrink-0 shadow-2xs" title="Referral">
+      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    </div>
+  );
+}
+
+function LeadSourceBadge({ source }) {
+  const s = (source || '').trim();
+  const sLower = s.toLowerCase();
+
+  let icon = null;
+  let label = s;
+
+  if (sLower.includes('meta') || sLower.includes('facebook') || sLower.includes('fb') || sLower.includes('instagram')) {
+    icon = <MetaIcon className="w-4 h-4 shrink-0" />;
+    label = s || 'Meta Ads';
+  } else if (sLower.includes('whatsapp') || sLower.includes('wa')) {
+    icon = <WhatsAppIcon className="w-4 h-4 shrink-0" />;
+    label = s || 'WhatsApp';
+  } else if (sLower.includes('walk')) {
+    icon = <WalkInIcon className="w-4 h-4 shrink-0" />;
+    label = s || 'Walk In';
+  } else if (sLower.includes('referral') || sLower.includes('doctor')) {
+    icon = <ReferralIcon className="w-4 h-4 shrink-0" />;
+    label = s || 'Referral';
+  } else {
+    icon = <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />;
+    label = s;
+  }
+
+  return (
+    <div className="inline-flex items-center gap-1.5 font-bold text-slate-800 text-xs whitespace-nowrap">
+      {icon}
+      <span>{label}</span>
+    </div>
+  );
+}
+
 export default function LeadsModule() {
   const {
     leads,
@@ -53,25 +133,44 @@ export default function LeadsModule() {
     setLeadToBookAppt,
     setIsBookApptSlotOpen,
     setPatient360Data,
+    enabledTreatments,
     setActivePatientId,
-    leadStatuses
+    leadStatuses,
+    leadStatusFilter,
+    setLeadStatusFilter
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState(() => leadStatusFilter || 'ALL');
+
+  React.useEffect(() => {
+    if (leadStatusFilter && leadStatusFilter !== statusFilter) {
+      setStatusFilter(leadStatusFilter);
+    }
+  }, [leadStatusFilter]);
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [sourceFilter, setSourceFilter] = useState('ALL');
   const [treatmentFilter, setTreatmentFilter] = useState('ALL');
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'pipeline'
 
-  // Dynamic unique treatments from leads
+  // Dynamic treatments prioritized by Settings configuration and active leads
   const uniqueTreatments = React.useMemo(() => {
-    const set = new Set();
-    leads.forEach(l => {
-      if (l.treatment && !l.isDeleted) set.add(l.treatment.trim());
+    const list = [];
+    const seen = new Set();
+    (enabledTreatments || []).forEach(t => {
+      if (t.name && !seen.has(t.name.trim())) {
+        seen.add(t.name.trim());
+        list.push(t.name.trim());
+      }
     });
-    return Array.from(set).sort();
-  }, [leads]);
+    leads.forEach(l => {
+      if (l.treatment && !l.isDeleted && !seen.has(l.treatment.trim())) {
+        seen.add(l.treatment.trim());
+        list.push(l.treatment.trim());
+      }
+    });
+    return list;
+  }, [enabledTreatments, leads]);
 
   // Date Filter State
   const [quickDate, setQuickDate] = useState('ALL');
@@ -206,21 +305,16 @@ export default function LeadsModule() {
     <div className="space-y-6 animate-in fade-in pb-10">
       {/* Top Header & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-extrabold text-[#102A50]">Leads Management</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-[#1769D2]">
-              {filtered.length} Leads
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <h1 className="text-xl font-extrabold text-[#102A50]">Leads Management</h1>
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-[#1769D2]">
+            {filtered.length} Leads
+          </span>
+          {appliedDateRange.from && (
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+              Filtered: {appliedDateRange.from} to {appliedDateRange.to || 'Present'}
             </span>
-            {appliedDateRange.from && (
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                Filtered: {appliedDateRange.from} to {appliedDateRange.to || 'Present'}
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Capture, nurture, and convert leads into confirmed appointments
-          </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
@@ -313,7 +407,10 @@ export default function LeadsModule() {
           {/* Status Filter */}
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              if (setLeadStatusFilter) setLeadStatusFilter(e.target.value);
+            }}
             className="text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] outline-none cursor-pointer"
           >
             <option value="ALL">All Statuses ({leads.filter(l => !l.isDeleted).length})</option>
@@ -341,13 +438,10 @@ export default function LeadsModule() {
             className="text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] outline-none cursor-pointer"
           >
             <option value="ALL">All Sources</option>
-            <option value="Google Ads">Google Ads</option>
-            <option value="Meta Ads">Meta / Insta Ads</option>
-            <option value="Website">Website</option>
+            <option value="Meta Ads">Meta Ads</option>
+            <option value="Walk In">Walk In</option>
             <option value="WhatsApp">WhatsApp</option>
-            <option value="Phone Calls">Phone Calls</option>
-            <option value="Walk-in">Walk-in</option>
-            <option value="Referrals">Referrals</option>
+            <option value="Referral">Referral</option>
           </select>
 
           {/* Interested Treatment Filter */}
@@ -460,9 +554,14 @@ export default function LeadsModule() {
                       </div>
                     </td>
 
-                    <td className="py-3.5 px-4 font-semibold text-slate-700">
-                      <div>{lead.phone}</div>
-                      {lead.email && <div className="text-[10px] text-slate-400 truncate max-w-[160px]">{lead.email}</div>}
+                    <td className="py-3.5 px-4 font-bold text-slate-800">
+                      <a
+                        href={`tel:${lead.phone}`}
+                        className="hover:text-[#1769D2] transition-colors"
+                        title={`Call ${lead.phone}`}
+                      >
+                        {lead.phone}
+                      </a>
                     </td>
 
                     <td className="py-3.5 px-4">
@@ -472,8 +571,7 @@ export default function LeadsModule() {
                     </td>
 
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-800">{lead.source}</div>
-                      <div className="text-[10px] text-slate-400 font-medium">{lead.assignedTo || 'Front Desk'}</div>
+                      <LeadSourceBadge source={lead.source} />
                     </td>
 
                     <td className="py-3.5 px-4">

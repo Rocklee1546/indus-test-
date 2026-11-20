@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { getDoctorInitials } from '../../utils/doctorUtils';
 import {
   Settings,
   Building2,
@@ -18,7 +19,12 @@ import {
   Phone,
   Mail,
   Stethoscope,
-  AlertCircle
+  AlertCircle,
+  ArrowUp,
+  ArrowDown,
+  Sparkles,
+  Activity,
+  Layers
 } from 'lucide-react';
 
 const PRESET_ROLES = [
@@ -33,6 +39,19 @@ const PRESET_ROLES = [
   'Other (Custom Role)'
 ];
 
+const PRESET_TREATMENT_CATEGORIES = [
+  'Surgical & Implants',
+  'Orthodontics',
+  'Endodontics',
+  'Cosmetic Dentistry',
+  'Prosthodontics',
+  'Pedodontics',
+  'Oral Surgery',
+  'Full Arch Restoration',
+  'General Dentistry',
+  'Periodontics'
+];
+
 export default function SettingsModule() {
   const {
     doctors,
@@ -41,6 +60,14 @@ export default function SettingsModule() {
     toggleDoctorStatus,
     deleteDoctor,
     appointments,
+    leads,
+    treatments,
+    enabledTreatments,
+    addTreatment,
+    updateTreatment,
+    toggleTreatmentStatus,
+    deleteTreatment,
+    moveTreatment,
     showToast,
     settingsTab,
     setSettingsTab
@@ -68,6 +95,64 @@ export default function SettingsModule() {
 
   // Doctor Delete Confirm Modal State
   const [deleteConfirmDoctor, setDeleteConfirmDoctor] = useState(null);
+
+  // Treatment Modal State
+  const [isTreatmentModalOpen, setIsTreatmentModalOpen] = useState(false);
+  const [editingTreatment, setEditingTreatment] = useState(null); // null = Add, obj = Edit
+  const [treatmentForm, setTreatmentForm] = useState({
+    name: '',
+    category: 'Surgical & Implants',
+    enabled: true
+  });
+  const [deleteConfirmTreatment, setDeleteConfirmTreatment] = useState(null);
+
+  const handleOpenAddTreatment = () => {
+    setEditingTreatment(null);
+    setTreatmentForm({
+      name: '',
+      category: 'General Dentistry',
+      enabled: true
+    });
+    setIsTreatmentModalOpen(true);
+  };
+
+  const handleOpenEditTreatment = (trt) => {
+    setEditingTreatment(trt);
+    setTreatmentForm({
+      name: trt.name,
+      category: trt.category || 'General Dentistry',
+      enabled: trt.enabled !== false
+    });
+    setIsTreatmentModalOpen(true);
+  };
+
+  const handleSaveTreatment = (e) => {
+    e.preventDefault();
+    if (!treatmentForm.name.trim()) {
+      showToast('Treatment name is required.', 'error');
+      return;
+    }
+    if (editingTreatment) {
+      updateTreatment(editingTreatment.id, {
+        name: treatmentForm.name.trim(),
+        category: treatmentForm.category.trim(),
+        enabled: treatmentForm.enabled
+      });
+    } else {
+      addTreatment({
+        name: treatmentForm.name.trim(),
+        category: treatmentForm.category.trim(),
+        enabled: treatmentForm.enabled
+      });
+    }
+    setIsTreatmentModalOpen(false);
+  };
+
+  const handleConfirmDeleteTreatment = () => {
+    if (!deleteConfirmTreatment) return;
+    deleteTreatment(deleteConfirmTreatment.id);
+    setDeleteConfirmTreatment(null);
+  };
 
   const auditLogs = [
     { time: '10:50 AM', user: 'Sneha R (Reception)', action: 'Registered Patient IND-0292 (Mr Gokul)', module: 'Patient Registration' },
@@ -162,10 +247,11 @@ export default function SettingsModule() {
         </div>
 
         {/* Tab Switcher */}
-        <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1 text-xs font-bold">
+        <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1 text-xs font-bold flex-wrap">
           {[
             { id: 'general', label: 'Clinic Profile' },
             { id: 'doctors', label: 'Doctor Management' },
+            { id: 'treatments', label: 'Treatment Management' },
             { id: 'audit_logs', label: 'HIPAA / DPDP Audit Logs' }
           ].map(tab => (
             <button
@@ -294,8 +380,8 @@ export default function SettingsModule() {
                       <tr key={doc.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 text-[#1769D2] flex items-center justify-center font-bold text-xs shrink-0">
-                              {doc.name.replace(/^Dr\.\s*/i, '').slice(0, 2).toUpperCase()}
+                            <div className="w-8 h-8 rounded-full bg-blue-100 text-[#1769D2] flex items-center justify-center font-bold text-xs shrink-0 tracking-wider">
+                              {getDoctorInitials(doc.name)}
                             </div>
                             <div>
                               <div className="font-extrabold text-xs text-[#102A50]">{doc.name}</div>
@@ -360,6 +446,170 @@ export default function SettingsModule() {
                               onClick={() => handleDeleteDoctorClick(doc)}
                               className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
                               title="Delete Doctor"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: TREATMENT MANAGEMENT ── */}
+      {activeTab === 'treatments' && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-extrabold text-[#102A50] flex items-center gap-2">
+                <Sparkles size={18} className="text-[#1769D2]" />
+                <span>Treatment Management & Clinical Service Catalog</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Configure clinic procedures, catalog order, and activation status. Changes synchronize live with Dashboard and Lead capture.
+              </p>
+            </div>
+            <button
+              onClick={handleOpenAddTreatment}
+              className="px-4 py-2.5 bg-[#1769D2] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer self-start sm:self-auto shrink-0"
+            >
+              <Plus size={15} />
+              <span>+ Add Treatment</span>
+            </button>
+          </div>
+
+          {/* Treatment Order Notice Banner */}
+          <div className="p-3.5 px-4 bg-gradient-to-r from-blue-50/80 to-teal-50/60 border border-blue-100 rounded-2xl flex items-center justify-between text-xs text-slate-700 gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-lg bg-blue-100 text-[#1769D2] flex items-center justify-center font-bold text-xs shrink-0">
+                ↕
+              </span>
+              <span>
+                <b>Treatment Display Order:</b> Treatments appear in this order across Dashboard performance charts, Lead capture forms, and Appointment scheduling. Use <b>↑</b> and <b>↓</b> to reorder.
+              </span>
+            </div>
+            <span className="text-[11px] font-extrabold text-[#1769D2] bg-white px-2.5 py-1 rounded-xl border border-blue-200/80 shrink-0">
+              {enabledTreatments.length} Active / {treatments.length} Total
+            </span>
+          </div>
+
+          {/* Treatments Table */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F8FAFC] border-b border-slate-200/80 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th className="py-3 px-4 w-24">Order</th>
+                    <th className="py-3 px-4">Treatment Name</th>
+                    <th className="py-3 px-4">Clinical Category</th>
+                    <th className="py-3 px-4 text-center">Active Enquiries</th>
+                    <th className="py-3 px-4 text-center">Appointments</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {treatments.map((trt, idx) => {
+                    const isEnabled = trt.enabled !== false;
+                    const enquiryCount = leads.filter(l => !l.isDeleted && l.treatment && (l.treatment.toLowerCase() === trt.name.toLowerCase() || l.treatment.toLowerCase().includes(trt.name.toLowerCase()) || trt.name.toLowerCase().includes(l.treatment.toLowerCase()))).length;
+                    const apptCount = appointments.filter(a => a.status !== 'Cancelled' && a.treatmentType && (a.treatmentType.toLowerCase() === trt.name.toLowerCase() || a.treatmentType.toLowerCase().includes(trt.name.toLowerCase()) || trt.name.toLowerCase().includes(a.treatmentType.toLowerCase()))).length;
+
+                    return (
+                      <tr key={trt.id} className="hover:bg-blue-50/40 transition-colors">
+                        {/* Order & Reorder Arrows */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-2">
+                            <div className="flex flex-col gap-0.5">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => moveTreatment(idx, -1)}
+                                className={`w-5 h-5 rounded flex items-center justify-center transition-colors ${
+                                  idx === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900 cursor-pointer'
+                                }`}
+                                title="Move treatment up"
+                              >
+                                <ArrowUp size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === treatments.length - 1}
+                                onClick={() => moveTreatment(idx, 1)}
+                                className={`w-5 h-5 rounded flex items-center justify-center transition-colors ${
+                                  idx === treatments.length - 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900 cursor-pointer'
+                                }`}
+                                title="Move treatment down"
+                              >
+                                <ArrowDown size={12} />
+                              </button>
+                            </div>
+                            <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 font-extrabold flex items-center justify-center text-xs">
+                              {idx + 1}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Name */}
+                        <td className="py-3.5 px-4 font-bold text-[#102A50]">
+                          <span>{trt.name}</span>
+                        </td>
+
+                        {/* Category */}
+                        <td className="py-3.5 px-4">
+                          <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-[#F1F5F9] text-slate-700">
+                            {trt.category || 'General Dentistry'}
+                          </span>
+                        </td>
+
+                        {/* Enquiries */}
+                        <td className="py-3.5 px-4 text-center">
+                          <span className="font-extrabold text-[#1769D2] bg-blue-50 px-2 py-0.5 rounded-lg text-xs">
+                            {enquiryCount}
+                          </span>
+                        </td>
+
+                        {/* Appointments */}
+                        <td className="py-3.5 px-4 text-center">
+                          <span className="font-extrabold text-[#12B89A] bg-teal-50 px-2 py-0.5 rounded-lg text-xs">
+                            {apptCount}
+                          </span>
+                        </td>
+
+                        {/* Status Toggle */}
+                        <td className="py-3.5 px-4">
+                          <button
+                            type="button"
+                            onClick={() => toggleTreatmentStatus(trt.id)}
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold cursor-pointer transition-all ${
+                              isEnabled
+                                ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Click to toggle treatment enabled/disabled"
+                          >
+                            {isEnabled ? '● Enabled' : '○ Disabled'}
+                          </button>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleOpenEditTreatment(trt)}
+                              className="p-1.5 rounded-lg bg-blue-50 text-[#1769D2] hover:bg-blue-100 transition-colors cursor-pointer"
+                              title="Edit Treatment Name & Category"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmTreatment(trt)}
+                              className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                              title="Delete Treatment"
                             >
                               <Trash2 size={13} />
                             </button>
@@ -582,6 +832,150 @@ export default function SettingsModule() {
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-500/20 transition-all cursor-pointer"
               >
                 Delete Doctor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Add / Edit Treatment ── */}
+      {isTreatmentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 text-[#1769D2] flex items-center justify-center">
+                  <Sparkles size={16} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-[#102A50]">
+                    {editingTreatment ? 'Edit Treatment Procedure' : 'Add New Treatment'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">INDUS Dental Clinical Service Catalog</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsTreatmentModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTreatment} className="p-6 space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Treatment Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Dental Implants, Clear Aligners"
+                  value={treatmentForm.name}
+                  onChange={e => setTreatmentForm({ ...treatmentForm, name: e.target.value })}
+                  className="w-full text-xs font-semibold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Clinical Category / Specialty</label>
+                <select
+                  value={treatmentForm.category}
+                  onChange={e => setTreatmentForm({ ...treatmentForm, category: e.target.value })}
+                  className="w-full text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] outline-none cursor-pointer"
+                >
+                  {PRESET_TREATMENT_CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Status</label>
+                <div className="flex items-center gap-4 text-xs font-bold">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="treatmentStatus"
+                      checked={treatmentForm.enabled === true}
+                      onChange={() => setTreatmentForm({ ...treatmentForm, enabled: true })}
+                      className="text-[#1769D2]"
+                    />
+                    <span className="text-emerald-700">Enabled (Available in Forms & Insights)</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="treatmentStatus"
+                      checked={treatmentForm.enabled === false}
+                      onChange={() => setTreatmentForm({ ...treatmentForm, enabled: false })}
+                      className="text-[#1769D2]"
+                    />
+                    <span className="text-slate-500">Disabled (Hidden)</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsTreatmentModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#1769D2] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+                >
+                  {editingTreatment ? 'Save Changes' : 'Add Treatment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Delete Treatment Confirmation ── */}
+      {deleteConfirmTreatment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-rose-100 max-w-sm w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                <AlertCircle size={20} />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-[#102A50]">Delete Treatment?</h3>
+                <p className="text-[11px] text-slate-500">Remove from active clinical catalog.</p>
+              </div>
+            </div>
+
+            <div className="bg-rose-50 rounded-2xl p-3 text-xs text-slate-700 mb-5 leading-relaxed">
+              <div className="font-bold text-[#102A50]">{deleteConfirmTreatment.name}</div>
+              <div className="text-slate-500">{deleteConfirmTreatment.category}</div>
+              <div className="text-[11px] text-slate-500 mt-2">
+                {leads.filter(l => !l.isDeleted && l.treatment && l.treatment.toLowerCase().includes(deleteConfirmTreatment.name.toLowerCase())).length > 0 ? (
+                  <span className="text-amber-700 font-semibold">
+                    ℹ️ Linked to {leads.filter(l => !l.isDeleted && l.treatment && l.treatment.toLowerCase().includes(deleteConfirmTreatment.name.toLowerCase())).length} lead(s). Historical lead records will preserve their treatment text.
+                  </span>
+                ) : (
+                  <span>No active leads currently linked. Safe to delete.</span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmTreatment(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteTreatment}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-500/20 transition-all cursor-pointer"
+              >
+                Delete Treatment
               </button>
             </div>
           </div>

@@ -1,4 +1,4 @@
-// Comprehensive Mock Database for INDUS Dental Centralised Multi-Branch System
+﻿// Comprehensive Mock Database for INDUS Dental Centralised Multi-Branch System
 
 export const BRANCHES = [
   {
@@ -197,6 +197,15 @@ export const FOLLOWUP_CATEGORIES = [
   'Dental Check-up Recall'
 ];
 
+export const INITIAL_TREATMENTS = [
+  { id: 'TRT-1', name: 'Dental Implants', category: 'Surgical & Implants', enabled: true },
+  { id: 'TRT-2', name: 'Clear Aligners', category: 'Orthodontics', enabled: true },
+  { id: 'TRT-3', name: 'Root Canal Treatment', category: 'Endodontics', enabled: true },
+  { id: 'TRT-4', name: 'Teeth Whitening', category: 'Cosmetic Dentistry', enabled: true },
+  { id: 'TRT-5', name: 'Zirconia Crown / Bridge', category: 'Prosthodontics', enabled: true },
+  { id: 'TRT-6', name: 'Pediatric Dental Care', category: 'Pedodontics', enabled: true }
+];
+
 export const WHATSAPP_TEMPLATES = [
   {
     id: 'TMP-01',
@@ -214,7 +223,7 @@ export const WHATSAPP_TEMPLATES = [
     id: 'TMP-03',
     name: 'Treatment price or consultation discussion follow-up',
     category: 'Pricing',
-    text: 'Hello {name}, following up on your enquiry about {treatment}. We offer flexible 0% interest EMI options through Bajaj Finserv and transparent treatment pricing. Would you like to schedule a 15-minute consultation to discuss your personalized treatment estimate?'
+    text: 'Hello {name}, following up on your enquiry about {treatment}. We offer transparent treatment pricing and flexible payment options (UPI, Cards & Cash). Would you like to schedule a 15-minute consultation to discuss your personalized treatment estimate?'
   },
   {
     id: 'TMP-04',
@@ -267,7 +276,7 @@ export const INITIAL_LEADS = [
     phone: '98430 12845',
     altPhone: '94432 11029',
     email: 'arunkumar.cbe@gmail.com',
-    source: 'Google Ads',
+    source: 'Meta Ads',
     treatment: 'Dental Implants',
     branchId: 'RS_PURAM',
     assignedTo: 'Sneha R (Front Desk)',
@@ -334,7 +343,7 @@ export const INITIAL_LEADS = [
     phone: '94421 88902',
     altPhone: '94421 88903',
     email: 'meenakandasamy@gmail.com',
-    source: 'Walk-in',
+    source: 'Referral',
     treatment: 'Root Canal Treatment',
     branchId: 'RS_PURAM',
     assignedTo: 'Sneha R (Front Desk)',
@@ -356,7 +365,7 @@ export const INITIAL_LEADS = [
     phone: '80721 03756',
     altPhone: '',
     email: 'gokul.chandran@outlook.com',
-    source: 'Website',
+    source: 'Walk In',
     treatment: 'Tooth Extraction & Crown',
     branchId: 'RS_PURAM',
     assignedTo: 'Sneha R (Front Desk)',
@@ -379,7 +388,7 @@ export const INITIAL_LEADS = [
     phone: '97871 23456',
     altPhone: '',
     email: 'revathi.m@gmail.com',
-    source: 'Phone Calls',
+    source: 'Referral',
     treatment: 'Pediatric Dental Cavity',
     branchId: 'RS_PURAM',
     assignedTo: 'Sneha R (Front Desk)',
@@ -400,7 +409,7 @@ export const INITIAL_LEADS = [
     phone: '98425 66789',
     altPhone: '',
     email: 'santhosh.k@gmail.com',
-    source: 'Referrals',
+    source: 'Referral',
     treatment: 'Zirconia Crown',
     branchId: 'RS_PURAM',
     assignedTo: 'Sneha R (Front Desk)',
@@ -457,7 +466,7 @@ export const INITIAL_PATIENTS = [
     address: '42, Bharathi Park 7th Cross, Saibaba Colony, Coimbatore',
     emergencyContact: 'Chandran P (Father) - 98421 99881',
     preferredBranch: 'RS_PURAM',
-    referredBy: 'Website',
+    referredBy: 'Meta Ads',
     registeredDate: '2026-11-05',
     familyRelation: 'Self',
     allergies: ['Penicillin Allergy'],
@@ -509,7 +518,7 @@ export const INITIAL_PATIENTS = [
     address: '88, Alagesan Road, Saibaba Colony, Coimbatore',
     emergencyContact: 'Kavitha A (Wife) - 98432 11029',
     preferredBranch: 'RS_PURAM',
-    referredBy: 'Google Ads (Converted Lead LD-4091)',
+    referredBy: 'Meta Ads',
     registeredDate: '2026-11-06',
     familyRelation: 'Self',
     allergies: ['No known drug allergies'],
@@ -561,7 +570,7 @@ export const INITIAL_PATIENTS = [
     address: '15, Race Course Road, Coimbatore',
     emergencyContact: 'Krishnan V (Spouse) - 98432 99887',
     preferredBranch: 'RS_PURAM',
-    referredBy: 'Google Ads',
+    referredBy: 'Meta Ads',
     registeredDate: '2026-10-14',
     familyRelation: 'Self',
     allergies: ['No known drug allergies'],
@@ -613,7 +622,7 @@ export const INITIAL_PATIENTS = [
     address: '88, Nava India, Peelamedu, Coimbatore',
     emergencyContact: 'Ranganathan K (Father) - 97860 33221',
     preferredBranch: 'PEELAMEDU',
-    referredBy: 'WhatsApp Campaign',
+    referredBy: 'WhatsApp',
     registeredDate: '2026-10-01',
     familyRelation: 'Self',
     allergies: ['None'],
@@ -639,7 +648,7 @@ export const INITIAL_PATIENTS = [
     address: '102, Sathy Road, Saravanampatti, Coimbatore',
     emergencyContact: 'Natarajan M (Father) - 98422 77889',
     preferredBranch: 'SARAVANAMPATTI',
-    referredBy: 'Referrals',
+    referredBy: 'Doctor Referral',
     registeredDate: '2026-10-25',
     familyRelation: 'Child',
     allergies: ['None'],
@@ -711,7 +720,7 @@ export const INITIAL_APPOINTMENTS = [
     type: 'In Clinic',
     status: 'Confirmed',
     symptoms: 'Routine Ortho alignment tracking',
-    bookingSource: 'WhatsApp',
+    bookingsource: 'Website',
     assignedStaff: 'Mahesh K',
     notes: 'Tray 4 and 5 ready in clinic kit.'
   },
@@ -752,7 +761,7 @@ export const INITIAL_APPOINTMENTS = [
     type: 'In Clinic',
     status: 'Booked',
     symptoms: 'Sensitivity to cold drinks and food lodgement',
-    bookingSource: 'Walk-in',
+    bookingsource: 'Referral',
     assignedStaff: 'Dinesh B',
     notes: 'Child friendly cartoon setup requested in Pedo operatory.'
   },
@@ -1140,8 +1149,8 @@ export const INITIAL_INVOICES = [
     grandTotal: 45000,
     paidAmount: 45000,
     balance: 0,
-    paymentMethod: 'Bank Transfer (NEFT)',
-    paymentRef: 'NEFT-AXIS-9921',
+    paymentMethod: 'Credit & Debit Cards (POS)',
+    paymentRef: 'POS-AXIS-9921',
     status: 'Paid'
   },
   {

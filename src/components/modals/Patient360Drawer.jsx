@@ -30,7 +30,10 @@ import {
   Layers,
   Activity,
   PenTool,
-  AlertTriangle
+  AlertTriangle,
+  ArrowLeft,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 
 // Time slots for appointment booking
@@ -66,6 +69,39 @@ export default function Patient360Drawer() {
   } = useApp();
 
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Full-Screen & Resizable Panel State
+  const [panelWidth, setPanelWidth] = useState('100%');
+  const [isResizing, setIsResizing] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(true);
+
+  // Drag handle for resizing
+  const startResizing = (e) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizing) return;
+      const calculatedWidth = Math.max(520, Math.min(window.innerWidth, window.innerWidth - e.clientX));
+      setPanelWidth(`${calculatedWidth}px`);
+      setIsFullScreen(calculatedWidth >= window.innerWidth - 30);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   // Find the live updated patient from `patients` or fallback to `patient360Data`
   const patient = useMemo(() => {
@@ -440,24 +476,50 @@ export default function Patient360Drawer() {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-      <div className="w-full max-w-4xl bg-[#F8FAFC] h-full shadow-2xl flex flex-col border-l border-slate-200 overflow-hidden">
+      <div
+        style={{ width: panelWidth }}
+        className={`relative bg-[#F8FAFC] h-full shadow-2xl flex flex-col border-l border-slate-200 overflow-hidden ${
+          isResizing ? 'select-none transition-none' : 'transition-[width] duration-150'
+        }`}
+      >
+        {/* ── Left Resize Drag Handle ── */}
+        <div
+          onMouseDown={startResizing}
+          className={`absolute left-0 top-0 bottom-0 w-2.5 hover:w-3 cursor-ew-resize z-40 transition-colors flex items-center justify-center group ${
+            isResizing ? 'bg-[#1769D2]' : 'bg-transparent hover:bg-[#1769D2]/30'
+          }`}
+          title="Drag left edge to resize panel width"
+        >
+          <div className={`w-1 h-10 rounded-full transition-colors ${isResizing ? 'bg-white' : 'bg-slate-300 group-hover:bg-[#1769D2]'}`} />
+        </div>
+
         {/* ── DRAWER HEADER ── */}
         <div className="bg-[#092C60] text-white px-6 py-4 flex items-center justify-between border-b border-white/10 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#1769D2] flex items-center justify-center font-black text-lg text-white shadow-md">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Clear Back Option */}
+            <button
+              onClick={() => setPatient360Data(null)}
+              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors mr-1 shrink-0 border border-white/15"
+              title="Back to Patients Database"
+            >
+              <ArrowLeft size={16} />
+              <span>Back</span>
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-[#1769D2] flex items-center justify-center font-black text-lg text-white shadow-md shrink-0">
               {patient.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-white">{patient.name}</h2>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-[#12B89A] text-slate-950">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg font-bold text-white truncate">{patient.name}</h2>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-[#12B89A] text-slate-950 shrink-0">
                   {patient.id}
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-white/10 text-blue-200">
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-white/10 text-blue-200 shrink-0">
                   {patient.gender || 'Patient'}, {patient.age} yrs
                 </span>
               </div>
-              <p className="text-xs text-blue-200/80 flex items-center gap-2 mt-0.5">
+              <p className="text-xs text-blue-200/80 flex items-center gap-2 mt-0.5 truncate">
                 <span>📞 {patient.phone}</span>
                 <span>•</span>
                 <span>📍 {patient.preferredBranch?.replace('_', ' ') || 'Coimbatore'}</span>
@@ -467,11 +529,11 @@ export default function Patient360Drawer() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {isCheckedIn ? (
               <span className="px-3 py-1.5 bg-emerald-500/25 border border-emerald-400 text-emerald-300 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>In Clinic (Checked In)</span>
+                <span className="hidden sm:inline">In Clinic (Checked In)</span>
               </span>
             ) : (
               <button
@@ -479,7 +541,7 @@ export default function Patient360Drawer() {
                 className="px-3.5 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-md cursor-pointer"
               >
                 <UserCheck size={14} />
-                <span>Check-In</span>
+                <span className="hidden sm:inline">Check-In</span>
               </button>
             )}
 
@@ -491,12 +553,30 @@ export default function Patient360Drawer() {
               className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-md cursor-pointer"
             >
               <CalendarPlus size={14} />
-              <span>Book Appt</span>
+              <span className="hidden sm:inline">Book Appt</span>
+            </button>
+
+            {/* Fullscreen / Resize Toggle */}
+            <button
+              onClick={() => {
+                if (isFullScreen) {
+                  setPanelWidth('75%');
+                  setIsFullScreen(false);
+                } else {
+                  setPanelWidth('100%');
+                  setIsFullScreen(true);
+                }
+              }}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+              title={isFullScreen ? 'Restore Panel Width' : 'Full-Screen Layout'}
+            >
+              {isFullScreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
             </button>
 
             <button
               onClick={() => setPatient360Data(null)}
               className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+              title="Close Profile"
             >
               <X size={18} />
             </button>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { X, Sparkles, User, Phone, Mail, Calendar, Heart, Shield, Check } from 'lucide-react';
+import { X, Sparkles, User, Phone, Mail, Calendar, Heart, Shield, Check, AlertCircle } from 'lucide-react';
 
 export default function AddPatientModal() {
   const { isAddPatientOpen, setIsAddPatientOpen, addPatient, selectedBranch, branches } = useApp();
@@ -14,13 +14,81 @@ export default function AddPatientModal() {
   const [ageDays, setAgeDays] = useState('');
   const [gender, setGender] = useState('Male');
   const [bloodGroup, setBloodGroup] = useState('B+');
-  const [referredBy, setReferredBy] = useState('Website');
+  const [referredBy, setReferredBy] = useState('Meta Ads');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [relationToFamily, setRelationToFamily] = useState('Self');
   const [preferredBranch, setPreferredBranch] = useState(selectedBranch === 'ALL' ? 'RS_PURAM' : selectedBranch);
 
+  // Validation States
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+
   if (!isAddPatientOpen) return null;
+
+  // Validation Logic
+  const validateField = (field, value) => {
+    let error = '';
+    const trimmed = (value || '').trim();
+
+    if (field === 'fullName') {
+      if (!trimmed) {
+        error = 'Patient full name is required.';
+      } else if (!/^[a-zA-Z\s'-]+$/.test(trimmed)) {
+        error = 'Name can only contain letters, spaces, hyphens, and apostrophes.';
+      } else if (trimmed.length < 2) {
+        error = 'Name must be at least 2 characters long.';
+      }
+    }
+
+    if (field === 'phone') {
+      const digitsOnly = (value || '').replace(/\D/g, '');
+      if (!digitsOnly) {
+        error = 'Mobile number is required.';
+      } else if (digitsOnly.length !== 10) {
+        error = `Mobile number must be exactly 10 digits (${digitsOnly.length}/10 entered).`;
+      }
+    }
+
+    if (field === 'email') {
+      if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+        error = 'Please enter a valid email address (e.g. name@domain.com).';
+      }
+    }
+
+    return error;
+  };
+
+  const handleFullNameChange = (e) => {
+    const val = e.target.value;
+    setFullName(val);
+    if (touched.fullName) {
+      setErrors(prev => ({ ...prev, fullName: validateField('fullName', val) }));
+    }
+  };
+
+  const handlePhoneChange = (e) => {
+    // Strictly accept digits only and cap at 10 digits
+    const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setPhone(digitsOnly);
+    if (touched.phone) {
+      setErrors(prev => ({ ...prev, phone: validateField('phone', digitsOnly) }));
+    }
+  };
+
+  const handleEmailChange = (e) => {
+    const val = e.target.value;
+    setEmail(val);
+    if (touched.email) {
+      setErrors(prev => ({ ...prev, email: validateField('email', val) }));
+    }
+  };
+
+  const handleBlur = (field) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    const val = field === 'fullName' ? fullName : field === 'phone' ? phone : email;
+    setErrors(prev => ({ ...prev, [field]: validateField(field, val) }));
+  };
 
   const handleGenerateUhid = () => {
     const randomNum = Math.floor(100 + Math.random() * 900);
@@ -40,14 +108,22 @@ export default function AddPatientModal() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!fullName.trim() || !phone.trim()) {
-      alert('Please provide patient name and phone number');
+
+    const nameErr = validateField('fullName', fullName);
+    const phoneErr = validateField('phone', phone);
+    const emailErr = validateField('email', email);
+
+    const newErrors = { fullName: nameErr, phone: phoneErr, email: emailErr };
+    setErrors(newErrors);
+    setTouched({ fullName: true, phone: true, email: true });
+
+    if (nameErr || phoneErr || emailErr) {
       return;
     }
 
-    addPatient({
+    const res = addPatient({
       id: uhid,
-      name: `${salutation ? salutation + ' ' : ''}${fullName.trim()}`,
+      name: `${salutation && salutation !== 'None' ? salutation + ' ' : ''}${fullName.trim()}`,
       salutation,
       dob: dob || '2003-04-18',
       age: Number(ageYrs) || 25,
@@ -55,8 +131,8 @@ export default function AddPatientModal() {
       gender,
       bloodGroup,
       referredBy,
-      phone,
-      email,
+      phone: phone.trim(),
+      email: email.trim(),
       familyRelation: relationToFamily,
       preferredBranch,
       address: 'Coimbatore, Tamil Nadu',
@@ -64,11 +140,15 @@ export default function AddPatientModal() {
       medicalAlerts: 'None'
     });
 
-    setIsAddPatientOpen(false);
-    // Reset fields
-    setFullName('');
-    setPhone('');
-    setEmail('');
+    if (res !== false) {
+      setIsAddPatientOpen(false);
+      // Reset fields
+      setFullName('');
+      setPhone('');
+      setEmail('');
+      setErrors({});
+      setTouched({});
+    }
   };
 
   return (
@@ -140,10 +220,21 @@ export default function AddPatientModal() {
                 type="text"
                 placeholder="e.g. Gokul Chandran"
                 value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] focus:ring-2 focus:ring-blue-100 outline-none"
+                onChange={handleFullNameChange}
+                onBlur={() => handleBlur('fullName')}
+                className={`w-full text-xs font-semibold rounded-xl px-3 py-2 text-[#102A50] outline-none transition-all ${
+                  errors.fullName
+                    ? 'bg-rose-50/30 border-2 border-rose-400 focus:ring-2 focus:ring-rose-100'
+                    : 'bg-white border border-slate-200 focus:ring-2 focus:ring-blue-100'
+                }`}
                 required
               />
+              {errors.fullName && (
+                <p className="text-[11px] font-semibold text-rose-500 flex items-center gap-1 mt-1 animate-in fade-in">
+                  <AlertCircle size={12} className="shrink-0" />
+                  <span>{errors.fullName}</span>
+                </p>
+              )}
             </div>
           </div>
 
@@ -246,13 +337,10 @@ export default function AddPatientModal() {
                 onChange={(e) => setReferredBy(e.target.value)}
                 className="w-full text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] focus:ring-2 focus:ring-blue-100 outline-none cursor-pointer"
               >
-                <option value="Google Ads">Google Ads</option>
-                <option value="Meta Ads">Meta / Instagram Ads</option>
-                <option value="Website">INDUS Dental Website</option>
-                <option value="WhatsApp Campaign">WhatsApp Campaign</option>
+                <option value="Meta Ads">Meta Ads</option>
                 <option value="Doctor Referral">Doctor Referral</option>
-                <option value="Family & Friends">Family & Friends</option>
-                <option value="Walk-in">Direct Walk-in</option>
+                <option value="Walk-in">Walk-in</option>
+                <option value="WhatsApp">WhatsApp</option>
               </select>
             </div>
           </div>
@@ -270,26 +358,53 @@ export default function AddPatientModal() {
                   <input
                     type="tel"
                     placeholder="8072103756"
+                    maxLength={10}
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full text-xs font-bold bg-[#F8FAFC] border border-blue-200 rounded-xl pl-8 pr-3 py-2 text-[#102A50] focus:bg-white focus:ring-2 focus:ring-blue-100 outline-none"
+                    onChange={handlePhoneChange}
+                    onBlur={() => handleBlur('phone')}
+                    className={`w-full text-xs font-bold rounded-xl pl-8 pr-3 py-2 text-[#102A50] outline-none transition-all ${
+                      touched.phone && errors.phone
+                        ? 'bg-rose-50/40 border border-rose-400 focus:ring-2 focus:ring-rose-100'
+                        : 'bg-[#F8FAFC] border border-blue-200 focus:bg-white focus:ring-2 focus:ring-blue-100'
+                    }`}
                     required
                   />
                 </div>
+                {touched.phone && errors.phone ? (
+                  <p className="text-[11px] font-semibold text-rose-500 flex items-center gap-1 mt-1 animate-in fade-in">
+                    <AlertCircle size={12} className="shrink-0" />
+                    <span>{errors.phone}</span>
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">10-digit mobile number</p>
+                )}
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Email</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Email <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
                 <div className="relative">
                   <Mail size={14} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="email"
                     placeholder="Enter email address"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-100 outline-none"
+                    onChange={handleEmailChange}
+                    onBlur={() => handleBlur('email')}
+                    className={`w-full text-xs font-medium rounded-xl pl-8 pr-3 py-2 text-slate-800 outline-none transition-all ${
+                      touched.email && errors.email
+                        ? 'bg-rose-50/40 border border-rose-400 focus:ring-2 focus:ring-rose-100'
+                        : 'bg-white border border-slate-200 focus:ring-2 focus:ring-blue-100'
+                    }`}
                   />
                 </div>
+                {touched.email && errors.email && (
+                  <p className="text-[11px] font-semibold text-rose-500 flex items-center gap-1 mt-1 animate-in fade-in">
+                    <AlertCircle size={12} className="shrink-0" />
+                    <span>{errors.email}</span>
+                  </p>
+                )}
               </div>
             </div>
           </div>

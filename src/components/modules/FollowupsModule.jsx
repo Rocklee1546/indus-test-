@@ -7,6 +7,7 @@ import {
   MessageSquare,
   CheckCircle2,
   Calendar,
+  CalendarDays,
   AlertCircle,
   Filter,
   User,
@@ -23,9 +24,61 @@ import {
   FileText,
   Stethoscope,
   Trash2,
-  Layers
+  Layers,
+  LayoutGrid,
+  Star,
+  Users,
+  UserPlus
 } from 'lucide-react';
 import { PATIENT_FOLLOWUP_CATEGORIES } from '../modals/AddPatientFollowupModal';
+
+// ── Official WhatsApp Brand Icon ──────────────────────────────────────────
+function WhatsAppIcon({ className = "w-3.5 h-3.5 shrink-0" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" title="WhatsApp">
+      <circle cx="12" cy="12" r="11" fill="#25D366" />
+      <path
+        d="M17.2 14.3c-.27-.14-1.6-.79-1.85-.88-.25-.09-.43-.14-.61.14-.18.27-.7.88-.86 1.06-.16.18-.32.2-.59.07-.27-.14-1.15-.42-2.18-1.34-.8-.72-1.35-1.6-1.51-1.87-.16-.27-.02-.42.12-.55.12-.12.27-.32.41-.48.14-.16.18-.27.27-.45.09-.18.05-.34-.02-.48-.07-.14-.61-1.48-.84-2.02-.22-.53-.45-.46-.61-.47-.16-.01-.34-.01-.52-.01-.18 0-.48.07-.73.34-.25.27-.96.94-.96 2.29s.98 2.65 1.12 2.84c.14.18 1.93 2.95 4.68 4.13.65.28 1.16.45 1.56.58.66.21 1.25.18 1.72.11.53-.08 1.62-.66 1.85-1.3.23-.64.23-1.19.16-1.3-.07-.12-.25-.19-.52-.33z"
+        fill="white"
+      />
+    </svg>
+  );
+}
+
+// ── 3-Person Team Group Icon for Prospective Leads ────────────────────────
+function ThreeUsersIcon({ className = "w-5 h-5 text-white" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="6.5" r="3" />
+      <path d="M12 11c-2.8 0-5.2 1.5-5.8 4-.1.6.4 1.1 1 1.1h9.6c.6 0 1.1-.5 1-1.1-.6-2.5-3-4-5.8-4z" />
+      <circle cx="5" cy="8.5" r="2.2" opacity="0.9" />
+      <path d="M5 12.2c-1.8 0-3.4 1-3.8 2.6-.1.5.3.8.8.8h2.6c-.1-.4-.2-.8-.2-1.2 0-1 .3-1.8.9-2.5-.1.1-.2.2-.3.3z" opacity="0.9" />
+      <circle cx="19" cy="8.5" r="2.2" opacity="0.9" />
+      <path d="M19 12.2c.1 0 .2 0 .3-.3.6.7.9 1.5.9 2.5 0 .4-.1.8-.2 1.2h2.6c.5 0 .9-.3.8-.8-.4-1.6-2-2.6-3.8-2.6h-.6z" opacity="0.9" />
+    </svg>
+  );
+}
+
+// ── Category Badge Color Helper ───────────────────────────────────────────
+function getCategoryBadgeClass(category = '') {
+  const c = category.toLowerCase();
+  if (c.includes('interested')) {
+    return 'bg-[#FFF4E8] text-[#D97706] border border-[#FED7AA]/60';
+  }
+  if (c.includes('first contact') || c.includes('initial')) {
+    return 'bg-[#EFF6FF] text-[#1670E8] border border-[#BFDBFE]/60';
+  }
+  if (c.includes('new lead')) {
+    return 'bg-[#F0F9FF] text-[#0284C7] border border-[#BAE6FD]/60';
+  }
+  if (c.includes('reminder') || c.includes('confirmation')) {
+    return 'bg-[#F3ECFF] text-[#7E22CE] border border-[#E9D5FF]/60';
+  }
+  if (c.includes('check-up') || c.includes('recall') || c.includes('post-treatment')) {
+    return 'bg-[#E6F8F0] text-[#16A34A] border border-[#BBF7D0]/60';
+  }
+  return 'bg-slate-100 text-slate-700 border border-slate-200';
+}
 
 export default function FollowupsModule() {
   const {
@@ -60,7 +113,7 @@ export default function FollowupsModule() {
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [doctorFilter, setDoctorFilter] = useState('ALL');
 
-  // Delete confirmation state (can hold single card or item)
+  // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -105,11 +158,10 @@ export default function FollowupsModule() {
   }, [filteredFollowups]);
 
   const patientFollowupsRaw = useMemo(() => {
-    // Avoid duplicate lead conversion cards inside patient tab
     return filteredFollowups.filter(f => (f.personType === 'patient' || !!f.patientId) && !f.leadId);
   }, [filteredFollowups]);
 
-  // ── Consolidated Lead Cards (Combine multiple follow-ups for one lead into a single card) ──
+  // ── Consolidated Lead Cards ───────────────────────────────────────────────
   const consolidatedLeadCards = useMemo(() => {
     const map = new Map();
 
@@ -123,22 +175,18 @@ export default function FollowupsModule() {
 
     const cards = [];
     map.forEach((items, groupKey) => {
-      // Resolve the correct name from leads registry — prevents blank/undefined names
       const leadRecord = items[0].leadId ? leads.find(l => l.id === items[0].leadId) : null;
       const resolvedName = leadRecord?.name || items[0].targetName || 'Unknown Lead';
       const resolvedPhone = leadRecord?.phone || items[0].phone || '';
       const resolvedTreatment = leadRecord?.treatment || items[0].treatment || '';
 
-      // Only show if the lead exists in the registry (no orphaned follow-ups)
       if (!leadRecord && !items[0].targetName) return;
 
-      // Pick primary item: pending items preferred over completed
       const pendingItems = items.filter(i => i.status !== 'Completed' && i.status !== 'Cancelled');
       const dueTodayItem = pendingItems.find(i => evaluateFollowup(i) === 'Due Today');
       const overdueItem = pendingItems.find(i => evaluateFollowup(i) === 'Overdue');
       const primaryItem = dueTodayItem || overdueItem || pendingItems[0] || items[0];
 
-      // Computed status for consolidated lead card
       let computedStatus = 'Pending';
       if (items.every(i => i.status === 'Completed')) {
         computedStatus = 'Completed';
@@ -177,7 +225,7 @@ export default function FollowupsModule() {
     return cards;
   }, [leadFollowupsRaw, leads, todayStr]);
 
-  // ── Consolidated Patient Cards (Combine 1-Day Before & Same-Day Reminders into one card) ──
+  // ── Consolidated Patient Cards ────────────────────────────────────────────
   const consolidatedPatientCards = useMemo(() => {
     const map = new Map();
 
@@ -205,13 +253,11 @@ export default function FollowupsModule() {
     map.forEach((items, groupKey) => {
       const isAppointment = groupKey.startsWith('appt_') || items.some(i => i.appointmentId || i.reminderType || i.category === 'Appointment Reminder');
 
-      // Resolve the correct patient name from registry — fixes blank name bug for multi-reminder patients
       const patientRecord = items[0].patientId ? patients.find(p => p.id === items[0].patientId) : null;
       const resolvedPatientName = patientRecord?.name || items[0].targetName || 'Unknown Patient';
       const resolvedPhone = patientRecord?.phone || items[0].phone || '';
 
       if (isAppointment) {
-        // Find 1-Day Before and Same-Day reminders
         const reminder1D = items.find(i =>
           i.reminderType?.includes('1 Day Before') ||
           i.reminderType?.includes('Pre-Visit') ||
@@ -241,7 +287,6 @@ export default function FollowupsModule() {
         const prevDay = reminder1D?.scheduledDate || getPrevDay(appointmentDate);
         const doctorName = items[0].doctorName || items[0].assignedTo;
 
-        // Dynamic Card Category Banner
         let cardCategory = 'Appointment Reminder';
         if (todayStr === prevDay) {
           cardCategory = "Tomorrow's Appointment Reminder";
@@ -249,7 +294,6 @@ export default function FollowupsModule() {
           cardCategory = "Today's Appointment Reminder";
         }
 
-        // Card Computed Status
         const allCompleted = items.every(i => i.status === 'Completed');
         let computedStatus = 'Pending';
 
@@ -292,7 +336,6 @@ export default function FollowupsModule() {
           items
         });
       } else {
-        // Regular patient clinical follow-up / recall (e.g. 6-month checkup, post-op)
         const primaryItem = items[0];
         const computedStatus = evaluateFollowup(primaryItem);
 
@@ -319,7 +362,7 @@ export default function FollowupsModule() {
     return cards;
   }, [patientFollowupsRaw, todayStr]);
 
-  // Tab badge counts (calculated strictly on consolidated cards)
+  // Tab badge counts
   const leadCounts = useMemo(() => ({
     total: consolidatedLeadCards.length,
     dueToday: consolidatedLeadCards.filter(c => c.computedStatus === 'Due Today').length,
@@ -336,7 +379,9 @@ export default function FollowupsModule() {
     pending: consolidatedPatientCards.filter(c => c.computedStatus === 'Pending' || c.computedStatus === 'Due Today' || c.computedStatus === 'Overdue').length
   }), [consolidatedPatientCards]);
 
-  const activeCounts = activeTab === 'leads' ? leadCounts : patientCounts;
+  const totalCenterDueToday = leadCounts.dueToday + patientCounts.dueToday;
+  const totalCenterOverdue = leadCounts.overdue + patientCounts.overdue;
+
   const currentCards = activeTab === 'leads' ? consolidatedLeadCards : consolidatedPatientCards;
 
   // Filter within active consolidated cards
@@ -388,7 +433,6 @@ export default function FollowupsModule() {
 
   // WhatsApp
   const handleOpenWhatsApp = (card) => {
-    const it = card.primaryItem;
     setWhatsAppData({
       recipientName: card.targetName,
       phone: card.phone,
@@ -420,13 +464,13 @@ export default function FollowupsModule() {
     setIsRescheduleModalOpen(true);
   };
 
-  // Lead Follow-up Completion (opens Outcome Modal)
+  // Lead Follow-up Completion
   const handleCompleteLeadFollowup = (card) => {
     setFollowupOutcomeData(card.primaryItem);
     setIsFollowupOutcomeOpen(true);
   };
 
-  // Patient Follow-up Completion (marks all companion items in consolidated card as completed)
+  // Patient Follow-up Completion
   const handleCompletePatientFollowup = (card) => {
     card.items.forEach(it => {
       if (it.status !== 'Completed') {
@@ -451,7 +495,7 @@ export default function FollowupsModule() {
     }
   };
 
-  // Delete handlers: deletes all follow-up events in the consolidated card
+  // Delete handlers
   const handleDeleteFollowup = (card) => setDeleteConfirm(card);
 
   const confirmDeleteFollowup = () => {
@@ -463,7 +507,7 @@ export default function FollowupsModule() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in pb-10">
+    <div className="space-y-5 animate-in fade-in pb-10">
       {/* ── Delete Confirmation Modal ── */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -474,7 +518,7 @@ export default function FollowupsModule() {
               </div>
               <div>
                 <h3 className="font-extrabold text-[#102A50] text-sm">Delete Follow-Up?</h3>
-                <p className="text-xs text-slate-500 mt-0.5">This action will remove this patient card.</p>
+                <p className="text-xs text-slate-500 mt-0.5">This action will remove this card.</p>
               </div>
             </div>
             <div className="bg-rose-50 rounded-2xl p-3 mb-5 text-xs text-slate-700 leading-relaxed">
@@ -507,44 +551,57 @@ export default function FollowupsModule() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-extrabold text-[#102A50]">
-              Follow-Up & Recall Management Centre
-            </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900">
-              {activeCounts.dueToday} Due Today
-            </span>
-            {activeCounts.overdue > 0 && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800">
-                {activeCounts.overdue} Overdue
-              </span>
-            )}
+      {/* ── 1. Page Header (Matching Reference Image 1) ─────────────────────── */}
+      <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5">
+          {/* Prominent blue calendar icon in rounded-square container */}
+          <div className="w-12 h-12 rounded-2xl bg-[#EFF6FF] border border-[#BFDBFE] text-[#1670E8] flex items-center justify-center shrink-0 shadow-2xs">
+            <CalendarDays size={24} />
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Two distinct channels: Prospective Lead Nurturing vs Registered Patient Care & Clinical Recalls
-          </p>
+
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-lg sm:text-xl font-extrabold text-[#102A50] tracking-tight">
+                Follow-Up & Recall Management Centre
+              </h1>
+
+              {/* Due Today Pill */}
+              <span className="bg-[#FFF4E8] text-[#EA580C] border border-[#FED7AA] font-extrabold text-xs px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
+                <Clock size={12} className="text-[#EA580C]" />
+                <span>Due Today · {totalCenterDueToday}</span>
+              </span>
+
+              {/* Overdue Pill */}
+              {totalCenterOverdue > 0 && (
+                <span className="bg-[#FEE2E2] text-[#DC2626] border border-[#FCA5A5] font-extrabold text-xs px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
+                  <AlertTriangle size={12} className="text-[#DC2626]" />
+                  <span>Overdue · {totalCenterOverdue}</span>
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-[#7186A5] font-medium mt-1">
+              Track patient follow-ups, manage recalls and keep your patients on schedule
+            </p>
+          </div>
         </div>
 
-        {/* Action Button */}
-        <div className="flex items-center gap-2">
-          {activeTab === 'patients' && (
-            <button
-              onClick={() => setIsAddPatientFollowupOpen(true)}
-              className="px-4 py-2 bg-[#1769D2] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus size={15} />
-              <span>Schedule Patient Follow-Up</span>
-            </button>
-          )}
+        {/* Right Watermark Accent matching Reference Image 1 */}
+        <div className="hidden lg:flex items-center gap-2.5 select-none opacity-85 shrink-0 pl-4 border-l border-slate-100">
+          <svg className="w-9 h-9 text-[#1670E8]/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+            <path d="M12 2C7.5 2 4 4.5 4 8c0 3 1.5 6 2.5 9.5 1 3.5 2.5 4.5 3.5 4.5s1.5-2 2-4c.5 2 1 4 2 4s2.5-1 3.5-4.5C18.5 14 20 11 20 8c0-3.5-3.5-6-8-6z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <div className="text-left">
+            <div className="font-serif italic text-xs font-semibold text-[#102A50]">Healthy Smiles...</div>
+            <div className="font-serif italic text-[11px] text-[#1670E8]">Our Priority</div>
+          </div>
         </div>
       </div>
 
-      {/* TWO DISTINCT PRIMARY TABS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Tab 1: Lead Follow-ups */}
+      {/* ── 2. Two Distinct Primary Category Cards with Dynamic Selection Highlight ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        
+        {/* Card 1: 1. Prospective Lead Follow-Ups */}
         <button
           type="button"
           onClick={() => {
@@ -552,51 +609,97 @@ export default function FollowupsModule() {
             setCategoryFilter('ALL');
             setStatusFilter('ALL');
           }}
-          className={`p-4 rounded-3xl border text-left transition-all cursor-pointer relative overflow-hidden ${
+          className={`p-5 rounded-3xl text-left transition-all duration-300 cursor-pointer relative overflow-hidden ${
             activeTab === 'leads'
-              ? 'bg-gradient-to-r from-[#092C60] to-[#1769D2] text-white border-transparent shadow-lg shadow-blue-900/20 ring-2 ring-[#1769D2]'
-              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+              ? 'bg-gradient-to-r from-[#0C294F] via-[#0E3A75] to-[#1253A4] text-white shadow-xl shadow-blue-900/20 ring-2 ring-blue-300'
+              : 'bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:bg-slate-50/60 text-slate-800'
           }`}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-sm ${
-                activeTab === 'leads' ? 'bg-white/20 text-white' : 'bg-blue-100 text-[#1769D2]'
+          {/* Subtle faint tooth watermark on selected gradient */}
+          {activeTab === 'leads' && (
+            <svg className="absolute -bottom-3 -right-3 w-24 h-24 text-white/5 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C7.5 2 4 4.5 4 8c0 3 1.5 6 2.5 9.5 1 3.5 2.5 4.5 3.5 4.5s1.5-2 2-4c.5 2 1 4 2 4s2.5-1 3.5-4.5C18.5 14 20 11 20 8c0-3.5-3.5-6-8-6z" />
+            </svg>
+          )}
+
+          <div className="flex items-center justify-between gap-3 relative z-10">
+            <div className="flex items-center gap-3">
+              {/* Circular icon container */}
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                activeTab === 'leads'
+                  ? 'bg-blue-600/90 border border-white/25 text-white shadow-md'
+                  : 'bg-blue-50 text-[#1670E8] border border-blue-200/70 shadow-2xs'
               }`}>
-                🎯
+                <ThreeUsersIcon className={`w-5 h-5 ${activeTab === 'leads' ? 'text-white' : 'text-[#1670E8]'}`} />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm tracking-wide">
+                <h3 className={`font-extrabold text-sm sm:text-base tracking-wide transition-colors ${
+                  activeTab === 'leads' ? 'text-white' : 'text-[#102A50]'
+                }`}>
                   1. Prospective Lead Follow-Ups
                 </h3>
-                <p className={`text-[11px] ${activeTab === 'leads' ? 'text-blue-100' : 'text-slate-500'}`}>
-                  Enquiries, treatment quotes & appointment conversions
+                <p className={`text-xs font-medium mt-0.5 transition-colors ${
+                  activeTab === 'leads' ? 'text-blue-100/90' : 'text-[#7186A5]'
+                }`}>
+                  Enquiries, treatment quotes & appointment confirmations
                 </p>
               </div>
             </div>
-            <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold ${
-              activeTab === 'leads' ? 'bg-white text-[#102A50]' : 'bg-slate-100 text-slate-700'
+
+            {/* Task Count Badge */}
+            <span className={`font-extrabold text-xs px-3.5 py-1.5 rounded-full shadow-sm flex items-center gap-1 shrink-0 transition-all ${
+              activeTab === 'leads'
+                ? 'bg-white text-[#102A50]'
+                : 'bg-slate-100 text-[#102A50]'
             }`}>
-              {leadCounts.total} Tasks
+              <span>{leadCounts.total} Tasks</span>
+              <ChevronRight size={13} className="text-[#102A50]" />
             </span>
           </div>
 
-          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/15 text-[11px] font-semibold">
-            <span className={activeTab === 'leads' ? 'text-blue-100' : 'text-slate-600'}>
-              Due Today: <b className="font-extrabold text-white">{leadCounts.dueToday}</b>
-            </span>
-            <span>•</span>
-            <span className={activeTab === 'leads' ? 'text-rose-200' : 'text-rose-600'}>
-              Overdue: <b className="font-extrabold">{leadCounts.overdue}</b>
-            </span>
-            <span>•</span>
-            <span className={activeTab === 'leads' ? 'text-emerald-200' : 'text-emerald-700'}>
-              Completed: <b className="font-extrabold">{leadCounts.completed}</b>
-            </span>
+          {/* Bottom Status Row */}
+          <div className={`flex items-center gap-3 mt-4 pt-3 text-xs font-semibold relative z-10 flex-wrap transition-all ${
+            activeTab === 'leads' ? 'border-t border-white/15' : 'border-t border-slate-100'
+          }`}>
+            {activeTab === 'leads' ? (
+              <>
+                <span className="text-sky-300 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-sky-400"></span>
+                  Due Today: <b className="font-extrabold text-white">{leadCounts.dueToday || '-'}</b>
+                </span>
+                <span className="text-white/30">•</span>
+                <span className="text-rose-300 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-400"></span>
+                  Overdue: <b className="font-extrabold text-white">{leadCounts.overdue || 0}</b>
+                </span>
+                <span className="text-white/30">•</span>
+                <span className="text-emerald-300 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  Completed: <b className="font-extrabold text-white">{leadCounts.completed || 0}</b>
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-[#1670E8] flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#1670E8]"></span>
+                  Due Today: <b className="font-extrabold text-[#102A50]">{leadCounts.dueToday || '-'}</b>
+                </span>
+                <span className="text-slate-300">•</span>
+                <span className="text-rose-600 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                  Overdue: <b className="font-extrabold text-rose-700">{leadCounts.overdue || 0}</b>
+                </span>
+                <span className="text-slate-300">•</span>
+                <span className="text-emerald-700 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  Completed: <b className="font-extrabold text-emerald-800">{leadCounts.completed || 0}</b>
+                </span>
+              </>
+            )}
           </div>
         </button>
 
-        {/* Tab 2: Patient Follow-ups */}
+        {/* Card 2: 2. Existing Patient Follow-Ups */}
         <button
           type="button"
           onClick={() => {
@@ -604,98 +707,146 @@ export default function FollowupsModule() {
             setCategoryFilter('ALL');
             setStatusFilter('ALL');
           }}
-          className={`p-4 rounded-3xl border text-left transition-all cursor-pointer relative overflow-hidden ${
+          className={`p-5 rounded-3xl text-left transition-all duration-300 cursor-pointer relative overflow-hidden ${
             activeTab === 'patients'
-              ? 'bg-gradient-to-r from-[#005B60] to-[#12B89A] text-white border-transparent shadow-lg shadow-teal-900/20 ring-2 ring-[#12B89A]'
-              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+              ? 'bg-gradient-to-r from-[#0C294F] via-[#0E3A75] to-[#1253A4] text-white shadow-xl shadow-blue-900/20 ring-2 ring-blue-300'
+              : 'bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:bg-slate-50/60 text-slate-800'
           }`}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-sm ${
-                activeTab === 'patients' ? 'bg-white/20 text-white' : 'bg-teal-100 text-teal-800'
+          {/* Subtle faint tooth watermark on selected gradient */}
+          {activeTab === 'patients' && (
+            <svg className="absolute -bottom-3 -right-3 w-24 h-24 text-white/5 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C7.5 2 4 4.5 4 8c0 3 1.5 6 2.5 9.5 1 3.5 2.5 4.5 3.5 4.5s1.5-2 2-4c.5 2 1 4 2 4s2.5-1 3.5-4.5C18.5 14 20 11 20 8c0-3.5-3.5-6-8-6z" />
+            </svg>
+          )}
+
+          <div className="flex items-center justify-between gap-3 relative z-10">
+            <div className="flex items-center gap-3">
+              {/* Circular icon container */}
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                activeTab === 'patients'
+                  ? 'bg-emerald-600/90 border border-white/25 text-white shadow-md'
+                  : 'bg-emerald-50 text-[#16A34A] border border-emerald-200/70 shadow-2xs'
               }`}>
-                🦷
+                <UserPlus size={22} className={activeTab === 'patients' ? 'text-white' : 'text-[#16A34A]'} />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm tracking-wide">
+                <h3 className={`font-extrabold text-sm sm:text-base tracking-wide transition-colors ${
+                  activeTab === 'patients' ? 'text-white' : 'text-[#102A50]'
+                }`}>
                   2. Existing Patient Follow-Ups
                 </h3>
-                <p className={`text-[11px] ${activeTab === 'patients' ? 'text-teal-100' : 'text-slate-500'}`}>
-                  Pre-visit reminders, same-day reminders & clinical recalls
+                <p className={`text-xs font-medium mt-0.5 transition-colors ${
+                  activeTab === 'patients' ? 'text-blue-100/90' : 'text-[#7186A5]'
+                }`}>
+                  Post-treatment check-ups, routine visits & next visit reminders
                 </p>
               </div>
             </div>
-            <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold ${
-              activeTab === 'patients' ? 'bg-white text-teal-950' : 'bg-slate-100 text-slate-700'
+
+            {/* Task Count Badge */}
+            <span className={`font-extrabold text-xs px-3.5 py-1.5 rounded-full shadow-sm flex items-center gap-1 shrink-0 transition-all ${
+              activeTab === 'patients'
+                ? 'bg-white text-[#102A50]'
+                : 'bg-slate-100 text-[#102A50]'
             }`}>
-              {patientCounts.total} Tasks
+              <span>{patientCounts.total} Tasks</span>
+              {activeTab === 'patients' && <ChevronRight size={13} className="text-[#102A50]" />}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/15 text-[11px] font-semibold">
-            <span className={activeTab === 'patients' ? 'text-teal-100' : 'text-slate-600'}>
-              Due Today: <b className="font-extrabold text-white">{patientCounts.dueToday}</b>
-            </span>
-            <span>•</span>
-            <span className={activeTab === 'patients' ? 'text-rose-200' : 'text-rose-600'}>
-              Overdue: <b className="font-extrabold">{patientCounts.overdue}</b>
-            </span>
-            <span>•</span>
-            <span className={activeTab === 'patients' ? 'text-emerald-200' : 'text-emerald-700'}>
-              Completed: <b className="font-extrabold">{patientCounts.completed}</b>
-            </span>
+          {/* Bottom Status Row */}
+          <div className={`flex items-center gap-3 mt-4 pt-3 text-xs font-semibold relative z-10 flex-wrap transition-all ${
+            activeTab === 'patients' ? 'border-t border-white/15' : 'border-t border-slate-100'
+          }`}>
+            {activeTab === 'patients' ? (
+              <>
+                <span className="text-sky-300 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-sky-400"></span>
+                  Due Today: <b className="font-extrabold text-white">{patientCounts.dueToday || '-'}</b>
+                </span>
+                <span className="text-white/30">•</span>
+                <span className="text-rose-300 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-400"></span>
+                  Overdue: <b className="font-extrabold text-white">{patientCounts.overdue || 0}</b>
+                </span>
+                <span className="text-white/30">•</span>
+                <span className="text-emerald-300 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  Completed: <b className="font-extrabold text-white">{patientCounts.completed || 0}</b>
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-[#1670E8] flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#1670E8]"></span>
+                  Due Today: <b className="font-extrabold text-[#102A50]">{patientCounts.dueToday || '-'}</b>
+                </span>
+                <span className="text-slate-300">•</span>
+                <span className="text-rose-600 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                  Overdue: <b className="font-extrabold text-rose-700">{patientCounts.overdue || 0}</b>
+                </span>
+                <span className="text-slate-300">•</span>
+                <span className="text-emerald-700 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  Completed: <b className="font-extrabold text-emerald-800">{patientCounts.completed || 0}</b>
+                </span>
+              </>
+            )}
           </div>
         </button>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center gap-3">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[220px]">
-          <Search size={14} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+      {/* ── 3. Search & Filter Bar (Matching Reference Image 1) ─────────────── */}
+      <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center gap-3">
+        {/* Search Input */}
+        <div className="relative flex-1 min-w-[240px]">
+          <Search size={14} className="text-[#7186A5] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder={activeTab === 'leads' ? "Search lead name, phone, Lead ID, treatment..." : "Search patient name, phone, UHID, treatment..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-xs font-medium bg-[#F8FAFC] border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-100 outline-none"
+            className="w-full text-xs font-medium bg-[#F8FAFD] border border-slate-200 rounded-xl pl-9 pr-3.5 py-2 text-[#102D55] placeholder:text-[#7186A5] focus:bg-white focus:ring-2 focus:ring-blue-100 outline-none transition-all"
           />
         </div>
 
-        {/* Categories (Context-sensitive to active tab) */}
-        {activeTab === 'patients' ? (
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] outline-none cursor-pointer"
-          >
-            <option value="ALL">All Categories</option>
-            <option value="Appointment Reminder">Appointment Reminders</option>
-            <option value="Tomorrow's Appointment Reminder">Tomorrow's Appointment Reminder</option>
-            <option value="Today's Appointment Reminder">Today's Appointment Reminder</option>
-            {PATIENT_FOLLOWUP_CATEGORIES.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        ) : (
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] outline-none cursor-pointer"
-          >
-            <option value="ALL">All Lead Categories</option>
-            <option value="New Lead Follow-up">New Lead Follow-up</option>
-            <option value="First Contact Follow-up">First Contact Follow-up</option>
-            <option value="Interested Lead Follow-up">Interested Lead Follow-up</option>
-          </select>
-        )}
+        {/* Categories Dropdown with Icon */}
+        <div className="relative">
+          {activeTab === 'patients' ? (
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="text-xs font-bold bg-[#F8FAFD] border border-slate-200 rounded-xl px-3.5 py-2 text-[#102D55] outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+            >
+              <option value="ALL">All Categories</option>
+              <option value="Appointment Reminder">Appointment Reminders</option>
+              <option value="Tomorrow's Appointment Reminder">Tomorrow's Appointment Reminder</option>
+              <option value="Today's Appointment Reminder">Today's Appointment Reminder</option>
+              {PATIENT_FOLLOWUP_CATEGORIES.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          ) : (
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="text-xs font-bold bg-[#F8FAFD] border border-slate-200 rounded-xl px-3.5 py-2 text-[#102D55] outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+            >
+              <option value="ALL">All Lead Categories</option>
+              <option value="New Lead Follow-up">New Lead Follow-up</option>
+              <option value="First Contact Follow-up">First Contact Follow-up</option>
+              <option value="Interested Lead Follow-up">Interested Lead Follow-up</option>
+            </select>
+          )}
+        </div>
 
-        {/* Status Filter */}
+        {/* Status Filter Dropdown with Star Icon */}
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] outline-none cursor-pointer"
+          className="text-xs font-bold bg-[#F8FAFD] border border-slate-200 rounded-xl px-3.5 py-2 text-[#102D55] outline-none cursor-pointer hover:bg-slate-100 transition-colors"
         >
           <option value="ALL">All Statuses</option>
           <option value="Due Today">Due Today</option>
@@ -709,7 +860,7 @@ export default function FollowupsModule() {
           <select
             value={doctorFilter}
             onChange={(e) => setDoctorFilter(e.target.value)}
-            className="text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] outline-none cursor-pointer"
+            className="text-xs font-bold bg-[#F8FAFD] border border-slate-200 rounded-xl px-3.5 py-2 text-[#102D55] outline-none cursor-pointer hover:bg-slate-100 transition-colors"
           >
             <option value="ALL">All Doctors</option>
             <option value="Priya">Dr. Priya Sharma</option>
@@ -718,12 +869,23 @@ export default function FollowupsModule() {
             <option value="Keerthana">Dr. Keerthana Mohan</option>
           </select>
         )}
+
+        {/* Patient Tab Action */}
+        {activeTab === 'patients' && (
+          <button
+            onClick={() => setIsAddPatientFollowupOpen(true)}
+            className="px-3.5 py-2 bg-[#1670E8] hover:bg-blue-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
+          >
+            <Plus size={14} />
+            <span>Schedule Follow-Up</span>
+          </button>
+        )}
       </div>
 
-      {/* Cards Grid */}
+      {/* ── 4. Task Cards Grid (Matching Reference Image 1) ─────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredCards.length === 0 ? (
-          <div className="col-span-full bg-white rounded-3xl border border-slate-200 p-12 text-center">
+          <div className="col-span-full bg-white rounded-3xl border border-slate-200 p-12 text-center shadow-xs">
             <Clock size={36} className="mx-auto text-slate-300 mb-2" />
             <h4 className="font-extrabold text-sm text-[#102A50]">
               No {activeTab === 'leads' ? 'Lead' : 'Patient'} Follow-Ups Found
@@ -743,65 +905,75 @@ export default function FollowupsModule() {
             return (
               <div
                 key={card.id}
-                className={`bg-white rounded-3xl p-5 border transition-all flex flex-col justify-between ${
+                className={`bg-white rounded-3xl p-5 border transition-all flex flex-col justify-between shadow-xs hover:shadow-md ${
                   card.computedStatus === 'Overdue'
-                    ? 'border-rose-200 shadow-rose-100/40 shadow-md'
+                    ? 'border-rose-200 shadow-rose-100/30'
                     : card.computedStatus === 'Due Today'
-                    ? 'border-amber-200 shadow-amber-100/40 shadow-md ring-1 ring-amber-300/60'
-                    : 'border-slate-200/80 shadow-xs hover:shadow-md'
+                    ? 'border-amber-200 shadow-amber-100/30'
+                    : 'border-slate-200/80'
                 }`}
               >
                 <div>
-                  {/* Card Header: Category + Status */}
+                  {/* Card Header: Category Badge + Status Badge */}
                   <div className="flex items-center justify-between gap-2 mb-2.5">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 truncate max-w-[200px]">
+                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${getCategoryBadgeClass(card.cardCategory)} truncate max-w-[200px]`}>
                       {card.cardCategory}
                     </span>
 
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${
-                      isCompleted
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : card.computedStatus === 'Due Today'
-                        ? 'bg-amber-100 text-amber-900 font-extrabold animate-pulse'
-                        : card.computedStatus === 'Overdue'
-                        ? 'bg-rose-100 text-rose-800 font-extrabold'
-                        : 'bg-blue-100 text-[#1769D2]'
-                    }`}>
-                      {card.computedStatus}
-                    </span>
+                    {/* Status Badge */}
+                    {card.computedStatus === 'Due Today' ? (
+                      <span className="bg-[#FEF3C7] text-[#D97706] border border-[#FCD34D] font-extrabold text-[11px] px-2.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 shadow-2xs">
+                        <Clock size={11} className="text-[#D97706]" />
+                        <span>Due Today</span>
+                      </span>
+                    ) : card.computedStatus === 'Overdue' ? (
+                      <span className="bg-[#FEE2E2] text-[#DC2626] border border-[#FCA5A5] font-extrabold text-[11px] px-2.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 shadow-2xs">
+                        <AlertTriangle size={11} className="text-[#DC2626]" />
+                        <span>Overdue</span>
+                      </span>
+                    ) : isCompleted ? (
+                      <span className="bg-[#DCFCE7] text-[#16A34A] border border-[#BBF7D0] font-extrabold text-[11px] px-2.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 shadow-2xs">
+                        <CheckCircle2 size={11} />
+                        <span>Completed</span>
+                      </span>
+                    ) : (
+                      <span className="bg-slate-100 text-slate-700 font-bold text-[11px] px-2.5 py-0.5 rounded-full shrink-0">
+                        {card.computedStatus}
+                      </span>
+                    )}
                   </div>
 
-                  {/* Target Name + ID (Rendered ONLY once) */}
+                  {/* Target Name + Lead/UHID Pill */}
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <button
                         onClick={() => handleOpenProfile(card)}
-                        className="font-extrabold text-sm text-[#102A50] hover:text-[#1769D2] transition-colors flex items-center gap-1 cursor-pointer text-left"
+                        className="font-extrabold text-base text-[#102A50] hover:text-[#1670E8] transition-colors flex items-center gap-1.5 cursor-pointer text-left"
                       >
                         <span>{card.targetName}</span>
-                        <ExternalLink size={11} className="text-slate-400" />
+                        <ExternalLink size={12} className="text-slate-400" />
                       </button>
-                      <div className="text-[11px] font-bold text-[#1769D2] mt-0.5">
+                      <div className="text-xs font-bold text-[#1670E8] mt-0.5">
                         {card.treatment}
                       </div>
                     </div>
 
-                    <span className="text-[10px] font-extrabold text-slate-400 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-100 shrink-0">
-                      {card.leadId ? `Lead: ${card.leadId}` : `UHID: ${card.patientId || 'IND'}`}
+                    <span className="text-[11px] font-bold text-[#1670E8] px-2.5 py-0.5 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE]/60 shrink-0">
+                      {card.leadId ? `Lead ID: ${card.leadId}` : `UHID: ${card.patientId || 'IND'}`}
                     </span>
                   </div>
 
                   {/* ── APPOINTMENT CARD: Combined Schedule & Dual Reminder Box ── */}
                   {card.isAppointment ? (
-                    <div className="mt-3 p-3 rounded-2xl bg-[#F8FAFC] border border-slate-200/80 space-y-2">
+                    <div className="mt-3 p-3 rounded-2xl bg-[#F8FAFD] border border-slate-200/80 space-y-2">
                       {/* Appointment Header */}
                       <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
-                        <div className="flex items-center gap-1.5 font-black text-xs text-[#102A50]">
-                          <Calendar size={13} className="text-[#1769D2]" />
+                        <div className="flex items-center gap-1.5 font-bold text-xs text-[#102A50]">
+                          <Calendar size={13} className="text-[#1670E8]" />
                           <span>Appt: {card.appointmentDate} at {card.appointmentTime}</span>
                         </div>
                         {card.doctorName && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-[#1769D2] border border-blue-100 truncate max-w-[120px]">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-[#1670E8] border border-blue-100 truncate max-w-[120px]">
                             {card.doctorName}
                           </span>
                         )}
@@ -855,7 +1027,7 @@ export default function FollowupsModule() {
                               ? 'bg-amber-200 text-amber-900 animate-pulse'
                               : todayStr > card.appointmentDate
                               ? 'bg-rose-100 text-rose-800'
-                              : 'bg-blue-50 text-[#1769D2]'
+                              : 'bg-blue-50 text-[#1670E8]'
                           }`}>
                             {card.reminderSame?.status === 'Completed' ? '✓ Done' : todayStr === card.appointmentDate ? 'Due Today' : todayStr > card.appointmentDate ? 'Past' : `Scheduled for ${card.appointmentDate}`}
                           </span>
@@ -864,148 +1036,125 @@ export default function FollowupsModule() {
                     </div>
                   ) : (
                     /* ── REGULAR CLINICAL RECALL OR CONSOLIDATED LEAD CARD ── */
-                    <div className="mt-3 p-2.5 rounded-xl bg-[#F8FAFC] border border-slate-100 text-xs text-slate-600 leading-relaxed space-y-1.5">
-                      {card.items && card.items.length > 1 ? (
-                        <div>
-                          <div className="flex items-center gap-1 font-bold text-[11px] text-slate-700 mb-1">
-                            <Layers size={11} className="text-[#1769D2]" />
-                            <span>{card.items.length} Follow-Up Tasks Consolidated:</span>
-                          </div>
-                          {card.items.map((it, idx) => (
-                            <div key={it.id || idx} className="text-[11px] text-slate-600 py-0.5 border-t border-slate-200/40 first:border-0 flex items-start justify-between gap-1">
-                              <span>• {it.reason || it.category}</span>
-                              <span className="text-[10px] text-slate-400 shrink-0 font-medium">{it.scheduledDate}</span>
+                    <div className="mt-2.5 p-2.5 rounded-xl bg-[#F8FAFD] border border-slate-100/90 text-xs text-slate-600 leading-relaxed flex items-start gap-1.5">
+                      <FileText size={12} className="text-[#7186A5] mt-0.5 shrink-0" />
+                      <div className="flex-1 space-y-1">
+                        {card.items && card.items.length > 1 ? (
+                          <div>
+                            <div className="flex items-center gap-1 font-bold text-[11px] text-slate-700 mb-1">
+                              <Layers size={11} className="text-[#1670E8]" />
+                              <span>{card.items.length} Follow-Up Tasks Consolidated:</span>
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div>{card.primaryItem?.reason || 'Follow-up consultation required.'}</div>
-                      )}
+                            {card.items.map((it, idx) => (
+                              <div key={it.id || idx} className="text-[11px] text-slate-600 py-0.5 border-t border-slate-200/40 first:border-0 flex items-start justify-between gap-1">
+                                <span>• {it.reason || it.category}</span>
+                                <span className="text-[10px] text-slate-400 shrink-0 font-medium">{it.scheduledDate}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div>{card.primaryItem?.reason || 'Follow-up consultation required.'}</div>
+                        )}
 
-                      {card.primaryItem?.outcome && (
-                        <div className="pt-1.5 border-t border-slate-200/60 font-bold text-[10px] text-emerald-700">
-                          Outcome: {card.primaryItem.outcome} {card.primaryItem.outcomeNotes ? `(${card.primaryItem.outcomeNotes})` : ''}
-                        </div>
-                      )}
+                        {card.primaryItem?.outcome && (
+                          <div className="pt-1 border-t border-slate-200/60 font-bold text-[10px] text-emerald-700">
+                            Outcome: {card.primaryItem.outcome} {card.primaryItem.outcomeNotes ? `(${card.primaryItem.outcomeNotes})` : ''}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
                   {/* Metadata: Phone, Slot, Assigned */}
-                  <div className="mt-3 space-y-1 text-[11px] text-slate-500">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1 font-semibold text-slate-700">
+                  <div className="mt-3 space-y-1 text-xs text-slate-500">
+                    <div className="flex items-center justify-between flex-wrap gap-1">
+                      <a
+                        href={`tel:${card.phone}`}
+                        className="flex items-center gap-1.5 font-bold text-slate-700 hover:text-[#1670E8] transition-colors"
+                      >
                         <Phone size={11} className="text-slate-400" />
-                        {card.phone}
-                      </span>
-                      <span className="font-extrabold text-[#102A50]">
-                        Slot: {card.appointmentTime || card.scheduledTime || '11:00 AM'} ({card.appointmentDate || card.scheduledDate})
-                      </span>
+                        <span>{card.phone}</span>
+                      </a>
+                      <div className="font-extrabold text-[#102A50] text-[11px] flex items-center gap-1">
+                        <Calendar size={11} className="text-[#1670E8]" />
+                        <span>Slot: {card.appointmentDate || card.scheduledDate} ({card.appointmentTime || card.scheduledTime || '11:00 AM'})</span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-[10px] text-slate-400">
-                      <span>Assigned: {card.assignedTo || 'Front Desk'}</span>
-                      <span>Channel: {card.lastContactChannel || 'WhatsApp'}</span>
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
+                      <span>Assigned: {card.assignedTo || 'Sneha, R | Front Desk'}</span>
+                      <span className="text-slate-400">Coimbatore Clinic</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Actions Row */}
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5">
-                  <div className="flex items-center gap-1">
-                    {/* Call simulation */}
+                {/* ── Action Buttons Row (Matching Reference Image 1) ── */}
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    {/* Call button */}
                     <button
                       onClick={() => showToast(`Calling ${card.targetName} (${card.phone})...`)}
-                      className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-[#102A50] flex items-center justify-center transition-colors cursor-pointer"
-                      title="Simulate Phone Call"
+                      className="w-8 h-8 rounded-full bg-[#EFF6FF] border border-[#BFDBFE] text-[#1670E8] hover:bg-blue-100 flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+                      title="Call Lead"
                     >
                       <Phone size={13} />
                     </button>
 
-                    {/* WhatsApp */}
+                    {/* WhatsApp button */}
                     <button
                       onClick={() => handleOpenWhatsApp(card)}
-                      className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors cursor-pointer"
-                      title="Send WhatsApp Message"
+                      className="w-8 h-8 rounded-full bg-[#E6F8F0] border border-[#BBF7D0] text-[#16A34A] hover:bg-emerald-100 flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+                      title="WhatsApp Lead"
                     >
-                      <MessageSquare size={13} />
+                      <WhatsAppIcon className="w-3.5 h-3.5" />
                     </button>
 
-                    {/* Reschedule */}
+                    {/* Reschedule button */}
                     {!isCompleted && (
                       <button
                         onClick={() => handleReschedule(card)}
-                        className="px-2.5 py-1.5 rounded-xl border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
                       >
-                        Reschedule
+                        <RotateCcw size={11} className="text-slate-400" />
+                        <span>Reschedule</span>
                       </button>
                     )}
 
-                    {/* Delete Follow-up (deletes all companion reminder items) */}
+                    {/* Delete button */}
                     <button
                       onClick={() => handleDeleteFollowup(card)}
+                      className="w-8 h-8 rounded-full bg-rose-50 border border-rose-200/80 text-rose-500 hover:bg-rose-100 flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
                       title="Delete Follow-Up"
-                      className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-500 hover:text-rose-700 flex items-center justify-center transition-colors cursor-pointer"
                     >
                       <Trash2 size={13} />
                     </button>
                   </div>
 
-                  {/* Main Action based on Lead vs Patient */}
-                  <div className="flex items-center gap-1">
-                    {activeTab === 'leads' ? (
-                      /* Lead Actions: Book Appointment or Complete with Outcome */
-                      <>
-                        <button
-                          onClick={() => handleBookAppointmentFromFollowup(card)}
-                          className="px-2.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#1769D2] text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
-                          title="Book Appointment from Lead"
-                        >
-                          <CalendarPlus size={12} />
-                          <span>Book</span>
-                        </button>
+                  <div className="flex items-center gap-1.5">
+                    {/* Book button */}
+                    <button
+                      onClick={() => handleBookAppointmentFromFollowup(card)}
+                      className="px-3 py-1.5 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] text-[#1670E8] hover:bg-blue-100 text-xs font-bold transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+                      title="Book Appointment"
+                    >
+                      <CalendarPlus size={12} />
+                      <span>Book</span>
+                    </button>
 
-                        {!isCompleted ? (
-                          <button
-                            onClick={() => handleCompleteLeadFollowup(card)}
-                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1"
-                          >
-                            <CheckCircle2 size={12} />
-                            <span>Done</span>
-                          </button>
-                        ) : (
-                          <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1 px-2 py-1">
-                            <CheckCircle2 size={13} />
-                            <span>Fulfilled</span>
-                          </span>
-                        )}
-                      </>
+                    {/* Done button */}
+                    {!isCompleted ? (
+                      <button
+                        onClick={() => activeTab === 'leads' ? handleCompleteLeadFollowup(card) : handleCompletePatientFollowup(card)}
+                        className="px-3.5 py-1.5 rounded-xl bg-[#16A34A] hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs flex items-center gap-1"
+                      >
+                        <CheckCircle2 size={12} />
+                        <span>Done</span>
+                      </button>
                     ) : (
-                      /* Patient Actions: Schedule Appt or Mark Done */
-                      <>
-                        <button
-                          onClick={() => handleBookAppointmentFromFollowup(card)}
-                          className="px-2.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
-                          title="Schedule Next Appointment"
-                        >
-                          <CalendarPlus size={12} />
-                          <span>Schedule Appt</span>
-                        </button>
-
-                        {!isCompleted ? (
-                          <button
-                            onClick={() => handleCompletePatientFollowup(card)}
-                            className="px-3 py-1.5 rounded-xl bg-[#092C60] hover:bg-blue-900 text-white text-[11px] font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1"
-                          >
-                            <CheckCircle2 size={12} />
-                            <span>Mark Done</span>
-                          </button>
-                        ) : (
-                          <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1 px-2 py-1">
-                            <CheckCircle2 size={13} />
-                            <span>Completed</span>
-                          </span>
-                        )}
-                      </>
+                      <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 px-2 py-1">
+                        <CheckCircle2 size={13} />
+                        <span>Done</span>
+                      </span>
                     )}
                   </div>
                 </div>

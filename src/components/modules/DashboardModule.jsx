@@ -21,8 +21,26 @@ import {
   PieChart,
   Settings,
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  Star
 } from 'lucide-react';
+
+// ── 3-Person Team Group Icon for Total Leads ─────────────────────────────
+function ThreeUsersIcon({ className = "w-5 h-5" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      {/* Center Figure (Front) */}
+      <circle cx="12" cy="6.5" r="3" />
+      <path d="M12 11c-2.8 0-5.2 1.5-5.8 4-.1.6.4 1.1 1 1.1h9.6c.6 0 1.1-.5 1-1.1-.6-2.5-3-4-5.8-4z" />
+      {/* Left Figure */}
+      <circle cx="5" cy="8.5" r="2.2" opacity="0.9" />
+      <path d="M5 12.2c-1.8 0-3.4 1-3.8 2.6-.1.5.3.8.8.8h2.6c-.1-.4-.2-.8-.2-1.2 0-1 .3-1.8.9-2.5-.1.1-.2.2-.3.3z" opacity="0.9" />
+      {/* Right Figure */}
+      <circle cx="19" cy="8.5" r="2.2" opacity="0.9" />
+      <path d="M19 12.2c.1 0 .2 0 .3-.3.6.7.9 1.5.9 2.5 0 .4-.1.8-.2 1.2h2.6c.5 0 .9-.3.8-.8-.4-1.6-2-2.6-3.8-2.6h-.6z" opacity="0.9" />
+    </svg>
+  );
+}
 
 // ── High-Quality 3D Molar Tooth Illustration with Blue Checkmark Shield ─────────
 function MolarToothWithShield({ className = "w-18 h-24" }) {
@@ -169,105 +187,27 @@ function BackgroundMolarTooth({ className = "w-18 h-24" }) {
   );
 }
 
-// ── Banner images served from /public (Vite serves public/ at root) ──────────
-const BANNER_SLIDES = [
-  { src: '/banner1.jpg', alt: 'Welcome to INDUS Dental – Healthy Smile, Happier You' },
-  { src: '/banner2.jpg', alt: 'Welcome to INDUS Dental – Your smile deserves care that feels exceptional' },
-];
-
-// ── Auto-Sliding Welcome Banner Carousel (always scrolls left, never reverses) ─
-function WelcomeBannerCarousel() {
-  // We append a clone of slide[0] at the end: [0, 1, 0-clone]
-  // When the clone finishes animating, we silently teleport back to index 0.
-  const slides = [...BANNER_SLIDES, BANNER_SLIDES[0]]; // 3 items
-  const real = BANNER_SLIDES.length;                   // 2 real slides
-  const [index, setIndex] = useState(0);               // 0-based position in `slides`
-  const [animated, setAnimated] = useState(true);      // controls CSS transition
-  const [paused, setPaused] = useState(false);
-  const timerRef = useRef(null);
-  const trackRef = useRef(null);
-
-  // After the clone finishes sliding in, silently snap back to index 0
-  const handleTransitionEnd = useCallback(() => {
-    if (index === real) {           // landed on clone of slide[0]
-      setAnimated(false);           // disable transition
-      setIndex(0);                  // teleport to real slide[0] (same visual)
-    }
-  }, [index, real]);
-
-  // Re-enable animation on the next frame after the silent snap
-  useEffect(() => {
-    if (!animated) {
-      const id = requestAnimationFrame(() => setAnimated(true));
-      return () => cancelAnimationFrame(id);
-    }
-  }, [animated]);
-
-  // Advance to next slide every 5 s
-  useEffect(() => {
-    if (paused) { clearInterval(timerRef.current); return; }
-    timerRef.current = setInterval(() => {
-      setAnimated(true);
-      setIndex(prev => prev + 1);   // always forward — clone handles wrap
-    }, 5000);
-    return () => clearInterval(timerRef.current);
-  }, [paused]);
-
-  const realIndex = index % real;   // used only for dot indicators
-
+// ── Welcome Banner ──────────────────────────────────────────────────────────
+function WelcomeBanner() {
   return (
     <div
-      className="relative w-full overflow-hidden"
+      className="relative w-full overflow-hidden rounded-2xl shadow-xs border border-blue-100/50"
       style={{
-        aspectRatio: '1024 / 341',
-        borderRadius: '16px',
-        boxShadow: '0 2px 12px 0 rgba(23,105,210,0.10)',
+        boxShadow: '0 2px 12px 0 rgba(23,105,210,0.08)',
       }}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
     >
-      {/* Slides track – always moves left */}
-      <div
-        ref={trackRef}
+      <img
+        src="/indus-welcome-banner.jpg"
+        alt="Welcome to INDUS Dental – Your Healthy Smile, Our Priority"
+        className="w-full h-auto block"
         style={{
-          display: 'flex',
-          width: `${slides.length * 100}%`,
-          height: '100%',
-          transform: `translateX(-${(index * 100) / slides.length}%)`,
-          transition: animated ? 'transform 0.70s cubic-bezier(0.42, 0, 0.18, 1)' : 'none',
-          willChange: 'transform',
+          width: '100%',
+          height: 'auto',
+          display: 'block',
+          objectFit: 'cover',
         }}
-        onTransitionEnd={handleTransitionEnd}
-      >
-        {slides.map((slide, idx) => (
-          <div
-            key={idx}
-            style={{ width: `${100 / slides.length}%`, height: '100%', flexShrink: 0 }}
-          >
-            <img
-              src={slide.src}
-              alt={slide.alt}
-              style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block' }}
-              draggable={false}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Dot indicators */}
-      <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-2 z-20">
-        {BANNER_SLIDES.map((_, idx) => (
-          <button
-            key={idx}
-            aria-label={`Slide ${idx + 1}`}
-            className={`rounded-full transition-all duration-300 ${
-              idx === realIndex
-                ? 'w-5 h-2 bg-white shadow-sm'
-                : 'w-2 h-2 bg-white/55 hover:bg-white/80'
-            }`}
-          />
-        ))}
-      </div>
+        draggable={false}
+      />
     </div>
   );
 }
@@ -404,8 +344,8 @@ export default function DashboardModule() {
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
-      {/* 1. Welcome Banner – Auto-Sliding Carousel (3:1 aspect ratio) */}
-      <WelcomeBannerCarousel />
+      {/* 1. Welcome Banner (1536:191, 8.04:1 aspect ratio) */}
+      <WelcomeBanner />
 
       {/* 2. Top Metric Cards – 6 Key Metric Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
@@ -415,8 +355,8 @@ export default function DashboardModule() {
           className="bg-white rounded-2xl p-3.5 pb-2 border border-slate-200/90 shadow-xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer"
         >
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-full bg-[#EBF2FF] text-[#1769D2] flex items-center justify-center shrink-0 shadow-xs">
-              <Users size={18} />
+            <div className="w-10 h-10 rounded-full bg-[#1769D2] text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/25 ring-2 ring-blue-200/80">
+              <ThreeUsersIcon className="w-5 h-5 text-white" />
             </div>
             <div className="min-w-0 flex-1">
               <span className="text-[11px] font-bold text-slate-500 block truncate leading-tight">
@@ -452,8 +392,8 @@ export default function DashboardModule() {
           className="bg-white rounded-2xl p-3.5 pb-2 border border-slate-200/90 shadow-xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer"
         >
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-full bg-teal-50 text-[#12B89A] flex items-center justify-center shrink-0 shadow-xs">
-              <UserPlus size={18} />
+            <div className="w-10 h-10 rounded-full bg-teal-50 text-[#12B89A] border border-teal-200 flex items-center justify-center shrink-0 shadow-xs ring-2 ring-teal-100">
+              <Star size={18} className="fill-[#12B89A] text-[#12B89A]" />
             </div>
             <div className="min-w-0 flex-1">
               <span className="text-[11px] font-bold text-slate-500 block truncate leading-tight">

@@ -289,6 +289,9 @@ export default function BillingModule() {
   const [methodFilter,   setMethodFilter]   = useState('ALL');
   const [doctorFilter,   setDoctorFilter]   = useState('ALL');
 
+  // Active KPI card selection (for visual highlight)
+  const [activeKpiCard,  setActiveKpiCard]  = useState(null);
+
   // Export dropdown
   const [showExport, setShowExport] = useState(false);
 
@@ -513,18 +516,38 @@ export default function BillingModule() {
   };
 
   // ── KPI card helper ───────────────────────────────────────────────────────
-  const KpiCard = ({ icon: Icon, label, value, sub, color }) => (
-    <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-start gap-3">
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-        <Icon size={17} />
+  const KpiCard = ({ id, icon: Icon, label, value, sub, iconBg, filterKey, filterVal }) => {
+    const isSelected = activeKpiCard === id;
+    return (
+      <div
+        onClick={() => {
+          if (isSelected) {
+            setActiveKpiCard(null);
+            setStatusFilter('ALL');
+          } else {
+            setActiveKpiCard(id);
+            if (filterKey === 'status') setStatusFilter(filterVal || 'ALL');
+          }
+        }}
+        className={`rounded-2xl p-4 border transition-all cursor-pointer flex items-start gap-3 ${
+          isSelected
+            ? 'bg-gradient-to-r from-[#0C294F] via-[#0E3A75] to-[#1253A4] border-transparent shadow-xl shadow-blue-900/20 ring-2 ring-blue-300'
+            : 'bg-white border-slate-200/80 shadow-xs hover:shadow-md hover:border-blue-200'
+        }`}
+      >
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+          isSelected ? 'bg-white/15 text-white border border-white/20' : (iconBg || 'bg-blue-50 text-[#1670E8]')
+        }`}>
+          <Icon size={18} />
+        </div>
+        <div className="min-w-0">
+          <div className={`text-[10px] font-bold uppercase tracking-wide truncate ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>{label}</div>
+          <div className={`text-lg font-black mt-0.5 leading-none ${isSelected ? 'text-white' : 'text-[#102A50]'}`}>{value}</div>
+          {sub && <div className={`text-[10px] mt-1 ${isSelected ? 'text-blue-200' : 'text-slate-500'}`}>{sub}</div>}
+        </div>
       </div>
-      <div className="min-w-0">
-        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate">{label}</div>
-        <div className="text-lg font-black text-[#102A50] mt-0.5 leading-none">{value}</div>
-        {sub && <div className="text-[10px] text-slate-500 mt-1">{sub}</div>}
-      </div>
-    </div>
-  );
+    );
+  };
 
   const fmt = n => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
@@ -754,20 +777,25 @@ export default function BillingModule() {
       )}
 
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-extrabold text-[#102A50]">Billing, Invoices & Payment Collections</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Tax Compliant</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#0C294F] via-[#0E3A75] to-[#1670E8] p-5 rounded-3xl shadow-lg shadow-blue-900/25">
+        <div className="flex items-center gap-3.5">
+          <div className="w-13 h-13 rounded-2xl bg-white/15 border border-white/25 text-white flex items-center justify-center shrink-0 backdrop-blur-sm" style={{width:'52px',height:'52px'}}>
+            <Receipt size={28} className="stroke-[2] text-white" />
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">Centralised accounts, branch collections, UPI/Card audit trails</p>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-extrabold text-white tracking-tight">Billing, Invoices & Payment Collections</h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-400/25 text-emerald-100 border border-emerald-300/30">Tax Compliant</span>
+            </div>
+            <p className="text-xs text-blue-100/75 mt-0.5">Centralised accounts, branch collections, UPI/Card audit trails</p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Export Button */}
           <div className="relative" onClick={e => e.stopPropagation()}>
             <button
               onClick={() => setShowExport(v => !v)}
-              className="px-3 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-[#102A50] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-2 bg-white/15 hover:bg-white/25 border border-white/25 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer backdrop-blur-sm"
             >
               <Download size={14} />
               <span>Export</span>
@@ -790,7 +818,7 @@ export default function BillingModule() {
 
           <button
             onClick={() => setIsNewInvoiceOpen(true)}
-            className="px-4 py-2 bg-[#1769D2] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 bg-white hover:bg-blue-50 text-[#1253A4] rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
           >
             <Plus size={15} />
             <span>Create Tax Invoice</span>
@@ -889,14 +917,14 @@ export default function BillingModule() {
 
       {/* ── Revenue Summary (8 KPI Cards) ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard icon={IndianRupee}  label="Total Revenue"       value={fmt(summary.totalRevenue)}     sub={`${summary.numInvoices} invoice(s)`}  color="bg-blue-50 text-[#1769D2]" />
-        <KpiCard icon={TrendingUp}   label="Total Collected"     value={fmt(summary.totalCollected)}   sub="Payments received"                     color="bg-emerald-50 text-emerald-600" />
-        <KpiCard icon={TrendingDown} label="Outstanding Amount"  value={fmt(summary.totalOutstanding)} sub="Pending dues"                          color="bg-rose-50 text-rose-600" />
-        <KpiCard icon={Tag}          label="Total Discounts"     value={fmt(summary.totalDiscounts)}   sub="Applied concessions"                   color="bg-amber-50 text-amber-600" />
-        <KpiCard icon={Receipt}      label="Total GST Collected" value={fmt(summary.totalGST)}         sub="CGST + SGST"                           color="bg-purple-50 text-purple-600" />
-        <KpiCard icon={FileText}     label="Number of Invoices"  value={summary.numInvoices}           sub="In selected period"                    color="bg-slate-100 text-slate-600" />
-        <KpiCard icon={CheckCircle2} label="Paid Invoices"       value={summary.paidInvoices}          sub="Fully settled"                         color="bg-teal-50 text-teal-600" />
-        <KpiCard icon={Clock}        label="Pending / Partial"   value={summary.pendingInvoices}       sub="Awaiting payment"                      color="bg-orange-50 text-orange-600" />
+        <KpiCard id="all"       icon={IndianRupee}  label="Total Revenue"       value={fmt(summary.totalRevenue)}     sub={`${summary.numInvoices} invoice(s)`}  iconBg="bg-blue-50 text-[#1670E8] border border-blue-100"       filterKey="status" filterVal="ALL" />
+        <KpiCard id="collected" icon={TrendingUp}   label="Total Collected"     value={fmt(summary.totalCollected)}   sub="Payments received"                     iconBg="bg-emerald-50 text-emerald-600 border border-emerald-100" filterKey="status" filterVal="Paid" />
+        <KpiCard id="outstnd"   icon={TrendingDown} label="Outstanding Amount"  value={fmt(summary.totalOutstanding)} sub="Pending dues"                          iconBg="bg-rose-50 text-rose-600 border border-rose-100"         filterKey="status" filterVal="Pending" />
+        <KpiCard id="disc"      icon={Tag}          label="Total Discounts"     value={fmt(summary.totalDiscounts)}   sub="Applied concessions"                   iconBg="bg-amber-50 text-amber-600 border border-amber-100"      />
+        <KpiCard id="gst"       icon={Receipt}      label="Total GST Collected" value={fmt(summary.totalGST)}         sub="CGST + SGST"                           iconBg="bg-purple-50 text-purple-600 border border-purple-100"   />
+        <KpiCard id="num"       icon={FileText}     label="Number of Invoices"  value={summary.numInvoices}           sub="In selected period"                    iconBg="bg-slate-100 text-slate-600 border border-slate-200"     />
+        <KpiCard id="paid"      icon={CheckCircle2} label="Paid Invoices"       value={summary.paidInvoices}          sub="Fully settled"                         iconBg="bg-teal-50 text-teal-600 border border-teal-100"         filterKey="status" filterVal="Paid" />
+        <KpiCard id="pending"   icon={Clock}        label="Pending / Partial"   value={summary.pendingInvoices}       sub="Awaiting payment"                      iconBg="bg-orange-50 text-orange-600 border border-orange-100"   filterKey="status" filterVal="Partial" />
       </div>
 
       {/* ── Invoices Table ── */}

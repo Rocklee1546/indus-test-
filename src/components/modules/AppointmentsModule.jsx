@@ -19,7 +19,8 @@ import {
   Calendar,
   ChevronDown,
   Trash2,
-  X
+  X,
+  CheckCheck
 } from 'lucide-react';
 
 const STATUS_FILTERS = [
@@ -70,6 +71,7 @@ export default function AppointmentsModule() {
   const [selectedDoctorFilter, setSelectedDoctorFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeCard, setActiveCard] = useState('ALL');
 
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { appt }
@@ -198,22 +200,27 @@ export default function AppointmentsModule() {
         </div>
       )}
       {/* ── Top Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-extrabold text-[#102A50]">Appointment Management</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-[#1769D2]">
-              {counts.total} Appointments
-            </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#0C294F] via-[#0E3A75] to-[#1670E8] p-5 rounded-3xl shadow-lg shadow-blue-900/25">
+        <div className="flex items-center gap-3.5">
+          <div className="w-13 h-13 rounded-2xl bg-white/15 border border-white/25 text-white flex items-center justify-center shrink-0 backdrop-blur-sm" style={{width:'52px',height:'52px'}}>
+            <CalendarDays size={28} className="stroke-[2.2] text-white" />
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Schedule, track, and manage dental appointments for existing and new patients
-          </p>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-extrabold text-white tracking-tight">Appointment Management</h1>
+              <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm">
+                {counts.total} Appointments
+              </span>
+            </div>
+            <p className="text-xs text-blue-100/80 mt-0.5">
+              Schedule, track, and manage dental appointments for existing and new patients
+            </p>
+          </div>
         </div>
 
         <button
           onClick={() => openBookAppointment(null)}
-          className="px-4 py-2.5 bg-[#1769D2] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
+          className="px-4 py-2.5 bg-white hover:bg-blue-50 text-[#1253A4] rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer shrink-0"
         >
           <CalendarPlus size={16} />
           <span>+ Book Appointment</span>
@@ -223,32 +230,125 @@ export default function AppointmentsModule() {
       {/* ── Summary Metric Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
-          { label: 'Total Appointments', value: counts.total, color: 'text-slate-800', bg: 'bg-white', filter: 'ALL' },
-          { label: "Today's Schedule", value: counts.today, color: 'text-[#1769D2]', bg: 'bg-white', isToday: true },
-          { label: 'Confirmed / Booked', value: counts.confirmed, color: 'text-indigo-700', bg: 'bg-white', filter: 'Confirmed' },
-          { label: 'Checked In', value: counts.checkedIn, color: 'text-teal-700', bg: 'bg-white', filter: 'Checked In' },
-          { label: 'Completed', value: counts.completed, color: 'text-emerald-700', bg: 'bg-white', filter: 'Completed' },
-          { label: 'Cancelled / No Show', value: counts.cancelled, color: 'text-red-700', bg: 'bg-white', filter: 'Cancelled' },
-        ].map((card, i) => (
-          <div
-            key={i}
-            onClick={() => {
-              if (card.isToday) {
-                setDateFilter('TODAY');
-                setStatusFilter('ALL');
-                setCustomDate('');
-              } else if (card.filter) {
-                setStatusFilter(card.filter);
-                setDateFilter('ALL');
-                setCustomDate('');
-              }
-            }}
-            className={`${card.bg} border border-slate-200/90 p-4 rounded-2xl shadow-xs hover:shadow-md transition-all cursor-pointer`}
-          >
-            <div className={`text-2xl font-black ${card.color}`}>{card.value}</div>
-            <div className="text-[11px] font-bold text-slate-500 mt-1 leading-tight">{card.label}</div>
-          </div>
-        ))}
+          {
+            id: 'ALL',
+            label: 'Total Appointments',
+            value: counts.total,
+            icon: CalendarDays,
+            cardBg: 'bg-blue-50/60 border-blue-200/60',
+            iconBg: 'bg-blue-100 text-[#1670E8] border border-blue-200',
+            numColor: 'text-[#102A50]',
+            labelColor: 'text-blue-700',
+            filter: 'ALL'
+          },
+          {
+            id: 'TODAY',
+            label: "Today's Schedule",
+            value: counts.today,
+            icon: Clock,
+            cardBg: 'bg-sky-50/60 border-sky-200/60',
+            iconBg: 'bg-sky-100 text-sky-600 border border-sky-200',
+            numColor: 'text-[#102A50]',
+            labelColor: 'text-sky-700',
+            isToday: true
+          },
+          {
+            id: 'Confirmed',
+            label: 'Confirmed / Booked',
+            value: counts.confirmed,
+            icon: CheckCircle2,
+            cardBg: 'bg-violet-50/60 border-violet-200/60',
+            iconBg: 'bg-violet-100 text-violet-600 border border-violet-200',
+            numColor: 'text-[#102A50]',
+            labelColor: 'text-violet-700',
+            filter: 'Confirmed'
+          },
+          {
+            id: 'Checked In',
+            label: 'Checked In',
+            value: counts.checkedIn,
+            icon: UserCheck,
+            cardBg: 'bg-teal-50/60 border-teal-200/60',
+            iconBg: 'bg-teal-100 text-teal-600 border border-teal-200',
+            numColor: 'text-[#102A50]',
+            labelColor: 'text-teal-700',
+            filter: 'Checked In'
+          },
+          {
+            id: 'Completed',
+            label: 'Completed',
+            value: counts.completed,
+            icon: CheckCheck,
+            cardBg: 'bg-emerald-50/60 border-emerald-200/60',
+            iconBg: 'bg-emerald-100 text-emerald-600 border border-emerald-200',
+            numColor: 'text-[#102A50]',
+            labelColor: 'text-emerald-700',
+            filter: 'Completed'
+          },
+          {
+            id: 'Cancelled',
+            label: 'Cancelled / No Show',
+            value: counts.cancelled,
+            icon: XCircle,
+            cardBg: 'bg-rose-50/60 border-rose-200/60',
+            iconBg: 'bg-rose-100 text-rose-600 border border-rose-200',
+            numColor: 'text-[#102A50]',
+            labelColor: 'text-rose-700',
+            filter: 'Cancelled'
+          },
+        ].map((card) => {
+          const isSelected = activeCard === card.id;
+          const IconComponent = card.icon;
+
+          return (
+            <div
+              key={card.id}
+              onClick={() => {
+                if (isSelected && card.id !== 'ALL') {
+                  setActiveCard('ALL');
+                  setStatusFilter('ALL');
+                  setDateFilter('ALL');
+                  setCustomDate('');
+                } else {
+                  setActiveCard(card.id);
+                  if (card.isToday) {
+                    setDateFilter('TODAY');
+                    setStatusFilter('ALL');
+                    setCustomDate('');
+                  } else if (card.filter) {
+                    setStatusFilter(card.filter);
+                    setDateFilter('ALL');
+                    setCustomDate('');
+                  }
+                }
+              }}
+              className={`p-4 rounded-2xl transition-all cursor-pointer border ${
+                isSelected
+                  ? 'bg-gradient-to-br from-[#0C294F] via-[#0E3A75] to-[#1253A4] border-transparent shadow-xl shadow-blue-900/25 ring-2 ring-blue-300'
+                  : `${card.cardBg} shadow-xs hover:shadow-md`
+              }`}
+            >
+              {/* Icon at top */}
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-colors ${
+                  isSelected
+                    ? 'bg-white/20 text-white border border-white/25'
+                    : card.iconBg
+                }`}
+              >
+                <IconComponent size={20} className="stroke-[2]" />
+              </div>
+              {/* Count */}
+              <div className={`text-2xl font-black tracking-tight leading-none mb-1 ${isSelected ? 'text-white' : card.numColor}`}>
+                {card.value}
+              </div>
+              {/* Label */}
+              <div className={`text-[11px] font-bold leading-tight ${isSelected ? 'text-blue-100' : card.labelColor}`}>
+                {card.label}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Filter Bar ── */}
@@ -315,7 +415,13 @@ export default function AppointmentsModule() {
             ].map(df => (
               <button
                 key={df.id}
-                onClick={() => { setDateFilter(df.id); setCustomDate(''); }}
+                onClick={() => {
+                  setDateFilter(df.id);
+                  setCustomDate('');
+                  if (df.id === 'TODAY') setActiveCard('TODAY');
+                  else if (df.id === 'ALL' && statusFilter === 'ALL') setActiveCard('ALL');
+                  else setActiveCard(null);
+                }}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   dateFilter === df.id && !customDate
                     ? 'bg-[#1769D2] text-white shadow-xs'
@@ -333,7 +439,11 @@ export default function AppointmentsModule() {
             {STATUS_FILTERS.map(st => (
               <button
                 key={st}
-                onClick={() => setStatusFilter(st)}
+                onClick={() => {
+                  setStatusFilter(st);
+                  if (st === 'ALL' && dateFilter === 'ALL') setActiveCard('ALL');
+                  else setActiveCard(st);
+                }}
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                   statusFilter === st
                     ? 'bg-[#102A50] text-white shadow-xs'
@@ -358,7 +468,7 @@ export default function AppointmentsModule() {
                 <th className="py-3 px-4">Mobile Number</th>
                 <th className="py-3 px-4">Doctor</th>
                 <th className="py-3 px-4">Date & Time</th>
-                <th className="py-3 px-4">Treatment / Reason</th>
+                <th className="py-3 px-4">Treatment</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -406,8 +516,11 @@ export default function AppointmentsModule() {
                       </td>
 
                       {/* Mobile Number */}
-                      <td className="py-3.5 px-4 font-medium text-slate-700">
-                        {appt.phone}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <Phone size={12} className="text-[#1769D2] shrink-0 stroke-[2]" />
+                          <span className="font-medium text-slate-700 text-xs">{appt.phone}</span>
+                        </div>
                       </td>
 
                       {/* Doctor */}
@@ -420,21 +533,21 @@ export default function AppointmentsModule() {
 
                       {/* Date & Time */}
                       <td className="py-3.5 px-4">
-                        <div className="font-bold text-[#1769D2]">{appt.time}</div>
-                        <div className="text-[10px] text-slate-500 font-medium">{appt.date}</div>
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <Clock size={12} className="text-[#1769D2] shrink-0 stroke-[2]" />
+                          <span className="font-bold text-[#1769D2] text-xs">{appt.time}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-medium mt-0.5 pl-[18px]">{appt.date}</div>
                         {appt.checkInTime && (
-                          <div className="text-[9px] text-emerald-700 font-semibold mt-0.5">
+                          <div className="text-[9px] text-emerald-700 font-semibold mt-0.5 pl-[18px]">
                             Checked in: {appt.checkInTime}
                           </div>
                         )}
                       </td>
 
-                      {/* Treatment / Visit Reason */}
-                      <td className="py-3.5 px-4 max-w-[200px]">
-                        <div className="font-semibold text-slate-800 truncate">{appt.treatmentType}</div>
-                        {appt.notes && (
-                          <div className="text-[10px] text-slate-400 truncate mt-0.5">{appt.notes}</div>
-                        )}
+                      {/* Treatment */}
+                      <td className="py-3.5 px-4 max-w-[180px]">
+                        <div className="font-semibold text-slate-800 truncate text-xs">{appt.treatmentType}</div>
                       </td>
 
                       {/* Actions */}

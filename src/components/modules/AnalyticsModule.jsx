@@ -116,6 +116,9 @@ export default function AnalyticsModule() {
   // ── Tab Navigation: 3 tabs only ──────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('overview');
 
+  // ── Active KPI card for Executive Overview ──────────────────────────────
+  const [activeKpiCard, setActiveKpiCard] = useState(null);
+
   // ── Date Filter State ────────────────────────────────────────────────────
   const [dateQuick, setDateQuick] = useState('ALL');
   const [customFrom, setCustomFrom] = useState('');
@@ -375,33 +378,38 @@ export default function AnalyticsModule() {
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
       {/* ── 1. Header with Title & Action Buttons ────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-extrabold text-[#102A50] tracking-tight">
-              Analytics & Executive Performance Reports
-            </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-[#1769D2]">
-              {selectedBranch ? (selectedBranch.name || 'Single Clinic EMR') : 'Single Clinic EMR'}
-            </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#0C294F] via-[#0E3A75] to-[#1670E8] p-5 rounded-3xl shadow-lg shadow-blue-900/25">
+        <div className="flex items-center gap-3.5">
+          <div className="rounded-2xl bg-white/15 border border-white/25 text-white flex items-center justify-center shrink-0 backdrop-blur-sm" style={{width:'52px',height:'52px'}}>
+            <TrendingUp size={28} className="stroke-[2] text-white" />
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Real clinic revenue, clinical treatment share, payment mode collections, and lead ROI
-          </p>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-extrabold text-white tracking-tight">
+                Analytics & Executive Performance Reports
+              </h1>
+              <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm">
+                {selectedBranch ? (selectedBranch.name || 'Single Clinic EMR') : 'Single Clinic EMR'}
+              </span>
+            </div>
+            <p className="text-xs text-blue-100/75 mt-0.5">
+              Real clinic revenue, clinical treatment share, payment mode collections, and lead ROI
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={exportCSV}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            className="px-3.5 py-2 bg-white/15 hover:bg-white/25 border border-white/25 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer backdrop-blur-sm"
             title="Download CSV Spreadsheet"
           >
-            <FileSpreadsheet size={14} className="text-emerald-600" />
+            <FileSpreadsheet size={14} className="text-emerald-300" />
             <span>Export CSV</span>
           </button>
           <button
             onClick={exportPDF}
-            className="px-4 py-2 bg-[#1769D2] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 bg-white hover:bg-blue-50 text-[#1253A4] rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
             title="Print or Save as PDF"
           >
             <Download size={14} />
@@ -496,65 +504,71 @@ export default function AnalyticsModule() {
         <div className="space-y-6">
           {/* Executive KPI Summary Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-[#EBF4FF] text-[#1769D2] flex items-center justify-center shrink-0">
-                <DollarSign size={20} />
-              </div>
-              <div className="min-w-0">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Collections</span>
-                <span className="text-lg sm:text-xl font-black text-[#102A50] truncate block">
-                  {formatINR(paymentStats.totalCollected)}
-                </span>
-                <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
-                  <CheckCircle2 size={11} /> Registered billing data
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-[#ECFDF5] text-[#12B89A] flex items-center justify-center shrink-0">
-                <Receipt size={20} />
-              </div>
-              <div className="min-w-0">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Average Invoice</span>
-                <span className="text-lg sm:text-xl font-black text-[#102A50] truncate block">
-                  {dateFilteredInvoices.length > 0
-                    ? formatINR(Math.round(paymentStats.totalCollected / dateFilteredInvoices.length))
-                    : '₹0'}
-                </span>
-                <span className="text-[10px] font-bold text-slate-500">Across {dateFilteredInvoices.length} invoices</span>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-[#F5F3FF] text-[#7955D9] flex items-center justify-center shrink-0">
-                <Activity size={20} />
-              </div>
-              <div className="min-w-0">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Top Treatment</span>
-                <span className="text-sm sm:text-base font-black text-[#102A50] truncate block" title={treatmentRevenueStats.items[0]?.name || 'N/A'}>
-                  {treatmentRevenueStats.items[0]?.name || 'No records'}
-                </span>
-                <span className="text-[10px] font-bold text-[#7955D9]">
-                  {treatmentRevenueStats.items[0] ? `${treatmentRevenueStats.items[0].share}% Revenue Share` : 'No data'}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-[#FFF7ED] text-[#F28B42] flex items-center justify-center shrink-0">
-                <Smartphone size={20} />
-              </div>
-              <div className="min-w-0">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Top Payment Mode</span>
-                <span className="text-sm sm:text-base font-black text-[#102A50] truncate block">
-                  {paymentStats.items.reduce((max, cur) => cur.amount > max.amount ? cur : max, paymentStats.items[0])?.shortName || 'UPI'}
-                </span>
-                <span className="text-[10px] font-bold text-emerald-600">
-                  {paymentStats.items.reduce((max, cur) => cur.amount > max.amount ? cur : max, paymentStats.items[0])?.share || 0}% Collections
-                </span>
-              </div>
-            </div>
+            {[
+              {
+                id: 'collections',
+                label: 'Total Collections',
+                value: formatINR(paymentStats.totalCollected),
+                sub: <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5"><CheckCircle2 size={11} /> Registered billing data</span>,
+                icon: DollarSign,
+                iconBg: 'bg-[#EBF4FF] text-[#1769D2]',
+                iconBgSel: 'bg-white/20 text-white border border-white/25',
+              },
+              {
+                id: 'avg_invoice',
+                label: 'Average Invoice',
+                value: dateFilteredInvoices.length > 0
+                  ? formatINR(Math.round(paymentStats.totalCollected / dateFilteredInvoices.length))
+                  : '₹0',
+                sub: <span className="text-[10px] font-bold text-slate-500">Across {dateFilteredInvoices.length} invoices</span>,
+                icon: Receipt,
+                iconBg: 'bg-[#ECFDF5] text-[#12B89A]',
+                iconBgSel: 'bg-white/20 text-white border border-white/25',
+              },
+              {
+                id: 'top_treatment',
+                label: 'Top Treatment',
+                value: treatmentRevenueStats.items[0]?.name || 'No records',
+                valueClass: 'text-sm sm:text-base',
+                sub: <span className="text-[10px] font-bold text-[#7955D9]">{treatmentRevenueStats.items[0] ? `${treatmentRevenueStats.items[0].share}% Revenue Share` : 'No data'}</span>,
+                icon: Activity,
+                iconBg: 'bg-[#F5F3FF] text-[#7955D9]',
+                iconBgSel: 'bg-white/20 text-white border border-white/25',
+              },
+              {
+                id: 'top_payment',
+                label: 'Top Payment Mode',
+                value: paymentStats.items.reduce((max, cur) => cur.amount > max.amount ? cur : max, paymentStats.items[0] || {})?.shortName || 'UPI',
+                valueClass: 'text-sm sm:text-base',
+                sub: <span className="text-[10px] font-bold text-emerald-600">{(paymentStats.items.reduce((max, cur) => cur.amount > max.amount ? cur : max, paymentStats.items[0] || {})?.share || 0)}% Collections</span>,
+                icon: Smartphone,
+                iconBg: 'bg-[#FFF7ED] text-[#F28B42]',
+                iconBgSel: 'bg-white/20 text-white border border-white/25',
+              },
+            ].map((card) => {
+              const isSelected = activeKpiCard === card.id;
+              const Icon = card.icon;
+              return (
+                <div
+                  key={card.id}
+                  onClick={() => setActiveKpiCard(isSelected ? null : card.id)}
+                  className={`p-4 rounded-2xl border transition-all duration-200 cursor-pointer flex items-center gap-3 ${
+                    isSelected
+                      ? 'bg-gradient-to-br from-[#0C294F] via-[#0E3A75] to-[#1253A4] border-transparent shadow-xl shadow-blue-900/25 ring-2 ring-blue-300'
+                      : 'bg-white border-slate-200/80 shadow-xs hover:shadow-md hover:border-blue-200'
+                  }`}
+                >
+                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-colors ${isSelected ? card.iconBgSel : card.iconBg}`}>
+                    <Icon size={20} className="stroke-[1.8]" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className={`text-[11px] font-bold uppercase tracking-wider block ${isSelected ? 'text-blue-200' : 'text-slate-400'}`}>{card.label}</span>
+                    <span className={`font-black truncate block ${card.valueClass || 'text-lg sm:text-xl'} ${isSelected ? 'text-white' : 'text-[#102A50]'}`}>{card.value}</span>
+                    <span className={isSelected ? '[&>*]:!text-blue-200 [&>span]:!text-blue-200' : ''}>{card.sub}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* ── Two Redesigned Visualizations Side-by-Side ───────────────────── */}

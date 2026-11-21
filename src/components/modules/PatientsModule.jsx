@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import {
   UserCheck,
   UserPlus,
+  Users,
   Search,
   Filter,
   Phone,
@@ -20,7 +21,9 @@ import {
   Trash2,
   CalendarRange,
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Mars,
+  Venus
 } from 'lucide-react';
 import DeleteConfirmationModal from '../modals/DeleteConfirmationModal';
 import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/exportUtils';
@@ -172,43 +175,46 @@ export default function PatientsModule() {
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-extrabold text-[#102A50]">Centralised Patient Database</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-[#1769D2]">
-              {totalCount} Registered
-            </span>
-            {checkedInCount > 0 && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>{checkedInCount} In Clinic</span>
-              </span>
-            )}
-            {appliedDateRange.from && (
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                Registered: {appliedDateRange.from} to {appliedDateRange.to || 'Present'}
-              </span>
-            )}
+      {/* Top Header – Premium Blue Gradient */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#0C294F] via-[#0E3A75] to-[#1670E8] p-5 rounded-3xl shadow-lg shadow-blue-900/25">
+        <div className="flex items-center gap-3.5">
+          <div className="w-13 h-13 rounded-2xl bg-white/15 border border-white/25 text-white flex items-center justify-center shrink-0 backdrop-blur-sm" style={{width:'52px',height:'52px'}}>
+            <Users size={28} className="stroke-[2] text-white" />
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Single unique UHID across all clinical records, visit history, and prescriptions
-          </p>
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-xl font-extrabold text-white tracking-tight">Centralised Patient Database</h1>
+              <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm">
+                {totalCount} Registered
+              </span>
+              {checkedInCount > 0 && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-400/20 text-emerald-100 border border-emerald-300/30 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
+                  <span>{checkedInCount} In Clinic</span>
+                </span>
+              )}
+              {appliedDateRange.from && (
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-400/20 text-amber-100 border border-amber-300/30">
+                  Registered: {appliedDateRange.from} to {appliedDateRange.to || 'Present'}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-blue-100/75 mt-0.5">Manage all patient records in one place</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap shrink-0">
           {/* Export Dropdown */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-              className="px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-2 bg-white/15 hover:bg-white/25 border border-white/25 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer backdrop-blur-sm"
               title="Export filtered patients"
             >
-              <Download size={14} className="text-slate-500" />
+              <Download size={14} className="text-white" />
               <span>Export</span>
-              <span className="text-[10px] text-slate-400">▾</span>
+              <span className="text-[10px] text-white/70">▾</span>
             </button>
 
             {isExportMenuOpen && (
@@ -238,13 +244,12 @@ export default function PatientsModule() {
             )}
           </div>
 
-          {/* Simplified Add Patient Button - No (IND-ID) in label */}
           <button
             onClick={() => setIsAddPatientOpen(true)}
-            className="px-4 py-2 bg-[#1769D2] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 bg-white hover:bg-blue-50 text-[#1253A4] rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
           >
             <UserPlus size={15} />
-            <span>Add New Patient</span>
+            <span>+ Add New Patient</span>
           </button>
         </div>
       </div>
@@ -484,15 +489,28 @@ export default function PatientsModule() {
                       </td>
 
                       <td className="py-3.5 px-4" onClick={() => setPatient360Data(patient)}>
-                        <div className="font-semibold text-slate-800">{patient.gender || '—'}</div>
+                        <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                          {patient.gender === 'Male' ? (
+                            <Mars size={14} className="text-blue-500 shrink-0 stroke-[2]" />
+                          ) : patient.gender === 'Female' ? (
+                            <Venus size={14} className="text-pink-500 shrink-0 stroke-[2]" />
+                          ) : null}
+                          <span>{patient.gender || '—'}</span>
+                        </div>
                       </td>
 
                       <td className="py-3.5 px-4 font-semibold text-slate-700">
-                        <div>{patient.phone}</div>
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <Phone size={12} className="text-[#1769D2] shrink-0 stroke-[2]" />
+                          <span>{patient.phone}</span>
+                        </div>
                       </td>
 
                       <td className="py-3.5 px-4" onClick={() => setPatient360Data(patient)}>
-                        <div className="font-bold text-[#102A50]">{regDate}</div>
+                        <div className="flex items-center gap-1.5">
+                          <Calendar size={12} className="text-[#1769D2] shrink-0 stroke-[2]" />
+                          <span className="font-bold text-[#102A50]">{regDate}</span>
+                        </div>
                       </td>
 
                       <td className="py-3.5 px-4">
@@ -510,9 +528,10 @@ export default function PatientsModule() {
 
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Check-In / Checked-In Status */}
                           {isPatientCheckedIn(patient.id, patient.name) ? (
                             <span
-                              className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-extrabold text-[11px] inline-flex items-center gap-1 border border-emerald-200"
+                              className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-extrabold text-[11px] inline-flex items-center gap-1 border border-emerald-200"
                               title="Patient is checked in at the clinic today"
                             >
                               <CheckCircle2 size={12} className="text-emerald-600" />
@@ -521,38 +540,41 @@ export default function PatientsModule() {
                           ) : (
                             <button
                               onClick={() => handlePatientCheckInClick(patient)}
-                              className="px-2.5 py-1 rounded-lg bg-blue-50 text-[#1769D2] hover:bg-blue-600 hover:text-white font-bold text-[11px] transition-colors cursor-pointer border border-blue-200/60"
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[11px] transition-colors cursor-pointer flex items-center gap-1 shadow-sm shadow-emerald-500/20"
                               title="Check-In patient for today's visit"
                             >
-                              Check-In
+                              <CheckCircle2 size={12} className="stroke-[2.5]" />
+                              <span>Check-In</span>
                             </button>
                           )}
 
+                          {/* Book Appointment */}
                           <button
                             onClick={() => openBookAppointment(patient)}
-                            className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer border border-indigo-200/60"
+                            className="px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer border border-indigo-200/60"
                             title="Book Appointment for this patient"
                           >
                             <Calendar size={12} />
                             <span>Book Appt</span>
                           </button>
 
+                          {/* History */}
                           <button
                             onClick={() => setPatient360Data(patient)}
-                            className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-200 font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
+                            className="px-2.5 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-colors shadow-sm shadow-blue-500/20"
                             title="Open Patient History & Records"
                           >
-                            <Clock size={12} />
+                            <Clock size={12} className="stroke-[2.5]" />
                             <span>History</span>
                           </button>
 
-                          {/* Safe Delete / Archive Button */}
+                          {/* Delete */}
                           <button
                             onClick={() => setPatientToDelete(patient)}
-                            className="p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-500 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-colors cursor-pointer"
                             title="Delete / Archive Patient"
                           >
-                            <Trash2 size={12} />
+                            <Trash2 size={13} className="stroke-[2]" />
                           </button>
                         </div>
                       </td>

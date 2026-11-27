@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { X, Sparkles, User, Phone, Mail, Calendar, Heart, Shield, Check, AlertCircle } from 'lucide-react';
 
 export default function AddPatientModal() {
-  const { isAddPatientOpen, setIsAddPatientOpen, addPatient, selectedBranch, branches } = useApp();
+  const { isAddPatientOpen, setIsAddPatientOpen, addPatient, getNextPatientId, selectedBranch, branches } = useApp();
 
-  const [uhid, setUhid] = useState('IND-0' + Math.floor(280 + Math.random() * 700));
+  const [uhid, setUhid] = useState(() => (getNextPatientId ? getNextPatientId() : 'IND-001'));
+
+  useEffect(() => {
+    if (isAddPatientOpen && getNextPatientId) {
+      setUhid(getNextPatientId());
+    }
+  }, [isAddPatientOpen, getNextPatientId]);
   const [salutation, setSalutation] = useState('Mr');
   const [fullName, setFullName] = useState('');
   const [dob, setDob] = useState('');
@@ -88,11 +94,6 @@ export default function AddPatientModal() {
     setTouched(prev => ({ ...prev, [field]: true }));
     const val = field === 'fullName' ? fullName : field === 'phone' ? phone : email;
     setErrors(prev => ({ ...prev, [field]: validateField(field, val) }));
-  };
-
-  const handleGenerateUhid = () => {
-    const randomNum = Math.floor(100 + Math.random() * 900);
-    setUhid(`IND-0${randomNum}`);
   };
 
   const handleDobChange = (e) => {
@@ -178,24 +179,17 @@ export default function AddPatientModal() {
           {/* Row 1: UHID, Salutation, Full Name */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <div className="md:col-span-4">
-              <label className="block text-xs font-bold text-slate-700 mb-1">UHID / Patient ID *</label>
-              <div className="flex gap-1.5">
-                <input
-                  type="text"
-                  value={uhid}
-                  onChange={(e) => setUhid(e.target.value)}
-                  className="w-full text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] focus:ring-2 focus:ring-blue-100 outline-none"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={handleGenerateUhid}
-                  className="px-2.5 py-2 bg-[#EEF5FF] hover:bg-blue-100 text-[#1769D2] text-[11px] font-bold rounded-xl flex items-center gap-1 transition-colors shrink-0 cursor-pointer"
-                >
-                  <Sparkles size={12} />
-                  <span>Generate</span>
-                </button>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">UHID / Patient ID *</label>
+                <span className="text-[10px] font-extrabold text-[#1769D2] bg-blue-50 px-1.5 py-0.5 rounded-md">Sequential</span>
               </div>
+              <input
+                type="text"
+                value={uhid}
+                readOnly
+                className="w-full text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] outline-none cursor-default"
+                required
+              />
             </div>
 
             <div className="md:col-span-3">

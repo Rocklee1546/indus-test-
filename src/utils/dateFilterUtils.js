@@ -11,7 +11,124 @@ export const QUICK_DATE_OPTIONS = [
 ];
 
 export function getTodayDateStr() {
-  return new Date().toISOString().split('T')[0];
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+  } catch (e) {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+}
+
+export function getPrevDayStr(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return '';
+  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  d.setDate(d.getDate() - 1);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export function getNextDayStr(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return '';
+  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  d.setDate(d.getDate() + 1);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// ── Shared calculation of pending follow-ups due today (matches FollowupsModule) ──
+export function calculateDueTodayCounts(followups = [], appointments = [], leads = [], patients = [], todayStr) {
+  const currentToday = todayStr || getTodayDateStr();
+
+  // 1. Prospective Leads: deduplicated by lead
+  const activeLeadsMap = new Map();
+  leads.forEach(l => {
+    if (!l.isDeleted) activeLeadsMap.set(l.id, l);
+  });
+
+  const leadFollowups = followups.filter(f => {
+    if (f.status === 'Completed' || f.status === 'Cancelled') return false;
+    if (f.leadId && !activeLeadsMap.has(f.leadId)) return false;
+    const fDate = (f.scheduledDate || f.dueDate || (f.scheduledDateTime ? f.scheduledDateTime.split('T')[0] : '') || '').substring(0, 10);
+    return fDate === currentToday && (f.personType === 'lead' || !!f.leadId);
+  });
+
+  const uniqueLeadKeys = new Set();
+  leadFollowups.forEach(f => {
+    const key = f.leadId || f.phone || f.targetName;
+    if (key) uniqueLeadKeys.add(key);
+  });
+  const leadDueToday = uniqueLeadKeys.size;
+
+  // 2. Existing Patients: deduplicated by appointment or patient recall
+  const activePatientsMap = new Map();
+  patients.forEach(p => {
+    if (!p.isDeleted && !p.isArchived) activePatientsMap.set(p.id, p);
+  });
+
+  // 2a. Standalone patient recalls/follow-ups (non-appointment)
+  const patientRecallsDueToday = followups.filter(f => {
+    if (f.status === 'Completed' || f.status === 'Cancelled') return false;
+    if (f.leadId) return false;
+    if (f.appointmentId) return false;
+    if (f.patientId && !activePatientsMap.has(f.patientId)) return false;
+    const fDate = (f.scheduledDate || f.dueDate || (f.scheduledDateTime ? f.scheduledDateTime.split('T')[0] : '') || '').substring(0, 10);
+    return fDate === currentToday && (f.personType === 'patient' || !!f.patientId);
+  });
+
+  const uniquePatientRecalls = new Set();
+  patientRecallsDueToday.forEach(f => {
+    const key = f.patientId || f.id;
+    if (key) uniquePatientRecalls.add(key);
+  });
+
+  // 2b. Appointment reminders (due today if same-day reminder or 1-day before reminder)
+  const processedAppts = new Set();
+  let apptRemindersDueToday = 0;
+
+  appointments.forEach(appt => {
+    if (!appt || appt.status === 'Cancelled') return;
+    if (processedAppts.has(appt.id)) return;
+
+    const appointmentDate = (appt.date || '').substring(0, 10);
+    const prevDay = getPrevDayStr(appointmentDate);
+
+    const isTodayAppt = currentToday === appointmentDate;
+    const isTomorrowAppt = currentToday === prevDay;
+
+    if (isTodayAppt || isTomorrowAppt) {
+      // Check if reminder was already marked completed in followups
+      const apptFollowups = followups.filter(f => f.appointmentId === appt.id);
+      const allCompleted = apptFollowups.length > 0 && apptFollowups.every(f => f.status === 'Completed');
+      if (!allCompleted) {
+        apptRemindersDueToday++;
+        processedAppts.add(appt.id);
+      }
+    }
+  });
+
+  const patientDueToday = uniquePatientRecalls.size + apptRemindersDueToday;
+
+  return {
+    leadDueToday,
+    patientDueToday,
+    totalDueToday: leadDueToday + patientDueToday
+  };
 }
 
 export function parseLeadDateToYMD(lead) {

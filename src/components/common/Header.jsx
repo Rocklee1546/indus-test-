@@ -32,9 +32,8 @@ function getLocalDateString() {
 
 export default function Header() {
   const {
+    adminProfile,
     currentUser,
-    doctors,
-    selectDoctorProfile,
     setSettingsTab,
     globalSearchQuery,
     setGlobalSearchQuery,
@@ -334,7 +333,7 @@ export default function Header() {
           )}
         </div>
 
-        {/* Doctor Profile Switcher (Synchronized with Doctor Management) */}
+        {/* Admin Profile Display (Single Source of Truth: Settings -> Clinic Profile -> Admin Profile) */}
         <div className="relative" ref={doctorMenuRef}>
           <button
             type="button"
@@ -342,18 +341,22 @@ export default function Header() {
             className={`flex items-center gap-2.5 pl-3 pr-2 py-1.5 border-l border-slate-200 rounded-2xl transition-all cursor-pointer group text-left ${
               showDoctorMenu ? 'bg-blue-50/80 ring-2 ring-blue-100' : 'hover:bg-slate-50'
             }`}
-            title="Click to Switch Doctor Profile"
+            title="Admin Profile – Click to view details"
           >
             <div className="relative shrink-0">
-              <div className="w-9 h-9 rounded-full bg-blue-50 border-2 border-blue-500/30 text-[#1769D2] font-black text-xs flex items-center justify-center tracking-wider group-hover:border-[#1769D2] group-hover:bg-[#1769D2] group-hover:text-white transition-all shadow-xs">
-                {currentUser.initials || getDoctorInitials(currentUser.name)}
+              <div className="w-9 h-9 rounded-full bg-blue-50 border-2 border-blue-500/30 text-[#1769D2] font-black text-xs flex items-center justify-center tracking-wider group-hover:border-[#1769D2] group-hover:bg-[#1769D2] group-hover:text-white transition-all shadow-xs overflow-hidden">
+                {adminProfile?.photo ? (
+                  <img src={adminProfile.photo} alt={adminProfile.name || currentUser.name} className="w-full h-full object-cover rounded-full" />
+                ) : (
+                  currentUser.initials || 'PS'
+                )}
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white" />
             </div>
             <div className="hidden lg:flex flex-col">
               <div className="flex items-center gap-1">
                 <span className="text-xs font-bold text-[#102A50] leading-tight group-hover:text-[#1769D2] transition-colors truncate max-w-[140px]">
-                  {currentUser.name}
+                  {adminProfile?.name || currentUser.name}
                 </span>
                 <ChevronDown
                   size={13}
@@ -363,106 +366,51 @@ export default function Header() {
                 />
               </div>
               <span className="text-[11px] text-slate-500 font-medium leading-tight truncate max-w-[150px]">
-                {currentUser.title || currentUser.role || 'Chief Dental Surgeon'}
+                {adminProfile?.designation || currentUser.title || 'Chief Dental Surgeon & Im...'}
               </span>
             </div>
           </button>
 
-          {/* Doctor Switcher Dropdown Modal */}
+          {/* Admin Profile Dropdown Modal */}
           {showDoctorMenu && (
-            <div className="absolute right-0 mt-2 w-84 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3 z-50 animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-center justify-between pb-2.5 mb-2 border-b border-slate-100">
-                <div className="flex items-center gap-1.5">
-                  <Stethoscope size={16} className="text-[#1769D2]" />
-                  <div>
-                    <h3 className="text-xs font-extrabold text-[#102A50] leading-tight">Switch Doctor Profile</h3>
-                    <p className="text-[10px] text-slate-400 font-medium">Select practicing clinician for this session</p>
-                  </div>
+            <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-4 z-50 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                <div className="w-11 h-11 rounded-full bg-blue-50 border-2 border-[#1769D2] text-[#1769D2] font-black text-sm flex items-center justify-center tracking-wider shrink-0 shadow-xs overflow-hidden">
+                  {adminProfile?.photo ? (
+                    <img src={adminProfile.photo} alt={adminProfile.name || currentUser.name} className="w-full h-full object-cover rounded-full" />
+                  ) : (
+                    currentUser.initials || 'PS'
+                  )}
                 </div>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
-                  {doctors.filter(d => (d.status || 'Active') === 'Active').length} Active
-                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-extrabold text-[#102A50] truncate block">
+                      {adminProfile?.name || currentUser.name}
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Active Administrator" />
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-medium truncate">
+                    {adminProfile?.designation || currentUser.title || 'Chief Dental Surgeon'}
+                  </p>
+                  <span className="inline-block mt-1 text-[9px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200/60">
+                    Clinic Administrator
+                  </span>
+                </div>
               </div>
 
-              {/* Doctors List */}
-              <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
-                {doctors.map((doc) => {
-                  const isCurrent = doc.id === currentUser.id;
-                  const isInactive = doc.status === 'Inactive';
-
-                  return (
-                    <div
-                      key={doc.id}
-                      onClick={() => {
-                        if (isInactive) return;
-                        selectDoctorProfile(doc.id);
-                        setShowDoctorMenu(false);
-                      }}
-                      className={`p-2 rounded-xl flex items-center justify-between transition-all ${
-                        isCurrent
-                          ? 'bg-blue-50/90 border border-blue-200/80 shadow-xs'
-                          : isInactive
-                          ? 'opacity-50 cursor-not-allowed bg-slate-50/60 border border-dashed border-slate-200'
-                          : 'hover:bg-slate-50 cursor-pointer border border-transparent hover:border-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs shrink-0 tracking-wider transition-all ${
-                            isCurrent
-                              ? 'bg-[#1769D2] text-white ring-2 ring-blue-300'
-                              : isInactive
-                              ? 'bg-slate-100 text-slate-400'
-                              : 'bg-blue-50 text-[#1769D2] border border-blue-200'
-                          }`}
-                        >
-                          {getDoctorInitials(doc.name)}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`text-xs font-bold truncate ${isCurrent ? 'text-[#1769D2]' : 'text-[#102A50]'}`}>
-                              {doc.name}
-                            </span>
-                            {isInactive ? (
-                              <span className="text-[9px] font-semibold text-slate-400 bg-slate-100 px-1 rounded">Inactive</span>
-                            ) : (
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Active Doctor" />
-                            )}
-                          </div>
-                          <p className="text-[10px] text-slate-500 font-medium truncate max-w-[150px]">
-                            {doc.role || doc.specialty || 'Dental Surgeon'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {isCurrent ? (
-                        <span className="flex items-center gap-1 text-[11px] font-extrabold text-[#1769D2] bg-white px-2 py-0.5 rounded-lg border border-blue-200 shrink-0">
-                          <Check size={12} />
-                          <span>Active</span>
-                        </span>
-                      ) : !isInactive ? (
-                        <span className="text-[10px] font-bold text-slate-400 hover:text-[#1769D2] transition-colors shrink-0">
-                          Select
-                        </span>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Bottom Settings Link */}
+              {/* Action: Configure Admin Profile */}
               <button
                 type="button"
                 onClick={() => {
                   setShowDoctorMenu(false);
                   setActiveModule('settings');
-                  if (setSettingsTab) setSettingsTab('doctors');
+                  if (setSettingsTab) setSettingsTab('general');
                 }}
-                className="w-full mt-2 pt-2.5 border-t border-slate-100 flex items-center justify-between px-2.5 py-1.5 text-xs font-bold text-[#1769D2] hover:bg-blue-50/80 rounded-xl transition-colors cursor-pointer"
+                className="w-full mt-3 flex items-center justify-between px-3 py-2 text-xs font-bold text-[#1769D2] hover:bg-blue-50/80 rounded-xl transition-colors cursor-pointer border border-blue-200/60"
               >
                 <span className="flex items-center gap-1.5">
                   <Settings size={14} className="text-[#1769D2]" />
-                  <span>Manage Doctors in Settings</span>
+                  <span>Edit Profile in Settings</span>
                 </span>
                 <ArrowRight size={13} />
               </button>

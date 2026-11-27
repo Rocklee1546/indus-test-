@@ -1,5 +1,6 @@
-﻿import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { getTodayDateStr } from '../../utils/dateFilterUtils';
 import {
   CalendarDays,
   Clock,
@@ -63,25 +64,44 @@ export default function AppointmentsModule() {
     setIsWhatsAppModalOpen,
     patients,
     deleteAppointment,
-    showToast
+    showToast,
+    appointmentDateFilter,
+    setAppointmentDateFilter
   } = useApp();
 
-  const [dateFilter, setDateFilter] = useState('ALL');
+  const [dateFilter, setDateFilter] = useState(appointmentDateFilter || 'ALL');
   const [customDate, setCustomDate] = useState('');
   const [selectedDoctorFilter, setSelectedDoctorFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCard, setActiveCard] = useState('ALL');
+  const [activeCard, setActiveCard] = useState(appointmentDateFilter || 'ALL');
 
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { appt }
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // IST-safe today string
+  const todayStr = getTodayDateStr();
   const tomorrowStr = (() => {
-    const d = new Date();
+    const parts = todayStr.split('-');
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
     d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   })();
+
+  // Sync when dashboard navigates here with Today filter preset
+  useEffect(() => {
+    if (appointmentDateFilter && appointmentDateFilter !== 'ALL') {
+      setDateFilter(appointmentDateFilter);
+      setActiveCard(appointmentDateFilter);
+      setCustomDate('');
+      setStatusFilter('ALL');
+      // Clear the preset after consuming it so back-navigation doesn't re-apply
+      setAppointmentDateFilter('ALL');
+    }
+  }, [appointmentDateFilter]);
 
   // Filtered Appointments
   const filtered = useMemo(() => {
@@ -97,7 +117,7 @@ export default function AppointmentsModule() {
       if (customDate) {
         matchesDate = appt.date === customDate;
       } else if (dateFilter === 'TODAY') {
-        matchesDate = appt.date === todayStr || appt.date === '2026-11-06';
+        matchesDate = appt.date === todayStr;
       } else if (dateFilter === 'TOMORROW') {
         matchesDate = appt.date === tomorrowStr;
       }
@@ -121,7 +141,7 @@ export default function AppointmentsModule() {
     const all = filteredAppointments;
     return {
       total: all.length,
-      today: all.filter(a => a.date === todayStr || a.date === '2026-11-06').length,
+      today: all.filter(a => a.date === todayStr).length,
       confirmed: all.filter(a => a.status === 'Confirmed' || a.status === 'Booked').length,
       checkedIn: all.filter(a => a.status === 'Checked In').length,
       completed: all.filter(a => a.status === 'Completed').length,
@@ -526,9 +546,6 @@ export default function AppointmentsModule() {
                       {/* Doctor */}
                       <td className="py-3.5 px-4">
                         <div className="font-bold text-slate-800">{appt.doctorName}</div>
-                        <div className="text-[10px] text-slate-400">
-                          {appt.branchId === 'RS_PURAM' ? 'R.S. Puram' : (appt.branchId || 'Coimbatore')}
-                        </div>
                       </td>
 
                       {/* Date & Time */}

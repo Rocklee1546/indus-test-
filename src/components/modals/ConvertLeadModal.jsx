@@ -14,6 +14,28 @@ export default function ConvertLeadModal() {
 
   if (!leadToConvert) return null;
 
+  if (leadToConvert.status === 'Converted to Patient') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+        <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-sm w-full p-6 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+            <UserCheck size={24} />
+          </div>
+          <h3 className="text-base font-extrabold text-[#102A50]">Already Converted</h3>
+          <p className="text-xs text-slate-500 mt-1 mb-4">
+            This lead has already been converted to patient <b className="text-emerald-700">{leadToConvert.convertedPatientId || 'Profile'}</b>.
+          </p>
+          <button
+            onClick={() => setLeadToConvert(null)}
+            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs cursor-pointer"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Check duplicate phone in patient database
   const cleanPhone = (leadToConvert.phone || '').replace(/\D/g, '');
   const existingPatient = patients.find(p => (p.phone || '').replace(/\D/g, '') === cleanPhone);

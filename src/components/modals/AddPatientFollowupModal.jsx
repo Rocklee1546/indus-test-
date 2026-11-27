@@ -53,7 +53,8 @@ export default function AddPatientFollowupModal() {
 
   if (!isAddPatientFollowupOpen) return null;
 
-  const currentDoctor = doctors.find(d => d.id === selectedDoctorId) || doctors[0];
+  const activeDocs = (doctors || []).filter(d => (d.status || 'Active') === 'Active');
+  const currentDoctor = activeDocs.find(d => d.id === selectedDoctorId) || activeDocs[0] || doctors[0];
 
   const handleClose = () => {
     setIsAddPatientFollowupOpen(false);
@@ -155,8 +156,8 @@ export default function AddPatientFollowupModal() {
                 onChange={(e) => setSelectedDoctorId(e.target.value)}
                 className="w-full text-xs font-bold bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-[#102A50] outline-none cursor-pointer"
               >
-                {doctors.map(d => (
-                  <option key={d.id} value={d.id}>{d.name} ({d.specialty})</option>
+                {activeDocs.map(d => (
+                  <option key={d.id} value={d.id}>{d.name} ({d.specialty || d.role || 'Dental Surgeon'})</option>
                 ))}
               </select>
             </div>

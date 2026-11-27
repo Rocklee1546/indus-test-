@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { getTodayDateStr, calculateDueTodayCounts } from '../../utils/dateFilterUtils';
 import { useApp } from '../../context/AppContext';
 import {
   Users,
@@ -187,30 +188,6 @@ function BackgroundMolarTooth({ className = "w-18 h-24" }) {
   );
 }
 
-// ── Welcome Banner ──────────────────────────────────────────────────────────
-function WelcomeBanner() {
-  return (
-    <div
-      className="relative w-full overflow-hidden rounded-2xl shadow-xs border border-blue-100/50"
-      style={{
-        boxShadow: '0 2px 12px 0 rgba(23,105,210,0.08)',
-      }}
-    >
-      <img
-        src="/indus-welcome-banner.jpg"
-        alt="Welcome to INDUS Dental – Your Healthy Smile, Our Priority"
-        className="w-full h-auto block"
-        style={{
-          width: '100%',
-          height: 'auto',
-          display: 'block',
-          objectFit: 'cover',
-        }}
-        draggable={false}
-      />
-    </div>
-  );
-}
 
 export default function DashboardModule() {
   const {
@@ -231,25 +208,46 @@ export default function DashboardModule() {
     setLeadStatusFilter,
     setIsAddPatientOpen,
     setIsBookCheckInOpen,
-    setIsAddLeadOpen
+    setIsAddLeadOpen,
+    navigateToAppointmentsToday,
+    navigateToFollowupsToday
   } = useApp();
 
   const [chartViewMode, setChartViewMode] = useState('bars'); // 'bars' | 'donut'
   const [activeMetricTab, setActiveMetricTab] = useState('all'); // 'all' | 'enquiries' | 'appointments' | 'converted'
 
-  // Connected Dynamic Metrics derived directly from central CRM state (excluding soft-deleted)
-  const activeLeads = leads.filter(l => !l.isDeleted);
+  // Connected Dynamic Metrics derived directly from central CRM state (Converted leads are excluded from active lead counts)
+  const allNonDeletedLeads = leads.filter(l => !l.isDeleted);
+  const activeLeads = allNonDeletedLeads;
+  const unconvertedActiveLeads = leads.filter(l => !l.isDeleted && l.status !== 'Converted to Patient');
   const activePatients = patients.filter(p => !p.isDeleted && !p.isArchived);
 
-  const totalLeads = activeLeads.length;
-  const newLeadsCount = activeLeads.filter(l => l.status === 'New').length;
-  const contactedCount = activeLeads.filter(l => l.status === 'Contacted').length;
-  const followupCount = activeLeads.filter(l => l.status === 'Follow-up Required').length;
-  const apptBookedCount = activeLeads.filter(l => l.status === 'Appointment Booked').length;
-  const convertedLeadsCount = activeLeads.filter(l => l.status === 'Converted to Patient').length;
+  const totalLeads = unconvertedActiveLeads.length;
+  const newLeadsCount = unconvertedActiveLeads.filter(l => l.status === 'New').length;
+  const contactedCount = unconvertedActiveLeads.filter(l => l.status === 'Contacted').length;
+  const followupCount = unconvertedActiveLeads.filter(l => l.status === 'Follow-up Required').length;
+  const apptBookedCount = unconvertedActiveLeads.filter(l => l.status === 'Appointment Booked').length;
+  const convertedLeadsCount = leads.filter(l => !l.isDeleted && l.status === 'Converted to Patient').length;
   const convertedPatientsCount = convertedLeadsCount;
-  const followupsTodayCount = followups.filter(f => f.status !== 'Completed' && f.status !== 'Cancelled').length;
-  const appointmentsTodayCount = appointments.filter(a => a.status !== 'Cancelled').length;
+
+  // IST-safe today string – no hardcoded dates, no UTC off-by-one errors
+  const todayIST = getTodayDateStr();
+
+  // Appointments Today: only count non-cancelled appointments scheduled for today (IST)
+  const appointmentsTodayCount = useMemo(() =>
+    filteredAppointments.filter(a =>
+      a.status !== 'Cancelled' &&
+      (a.date || '').substring(0, 10) === todayIST
+    ).length
+  , [filteredAppointments, todayIST]);
+
+  // Follow-ups Today: deduplicated count via shared utility (matches FollowupsModule logic)
+  const dueTodayStats = useMemo(() =>
+    calculateDueTodayCounts(followups, appointments, leads, patients, todayIST)
+  , [followups, appointments, leads, patients, todayIST]);
+
+  const followupsTodayCount = dueTodayStats.totalDueToday;
+
   const registeredPatientsCount = activePatients.length;
   const conversionRate = Math.round((convertedLeadsCount / (activeLeads.length || 1)) * 100);
 
@@ -298,13 +296,7 @@ export default function DashboardModule() {
 
   // ── Live: Today's Follow-ups (linked to valid records, pending, today) ─────
   const todaysFollowups = useMemo(() => {
-    const todayStr = (() => {
-      const d = new Date();
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    })();
+    const todayStr = getTodayDateStr();
     return followups
       .filter(f => {
         if (f.status === 'Completed' || f.status === 'Cancelled') return false;
@@ -344,10 +336,7 @@ export default function DashboardModule() {
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
-      {/* 1. Welcome Banner (1536:191, 8.04:1 aspect ratio) */}
-      <WelcomeBanner />
-
-      {/* 2. Top Metric Cards – 6 Key Metric Cards */}
+      {/* Top Metric Cards – 6 Key Metric Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
         {/* Card 1: Total Leads */}
         <div
@@ -425,7 +414,7 @@ export default function DashboardModule() {
 
         {/* Card 3: Follow-ups Due Today */}
         <div
-          onClick={() => setActiveModule('followups')}
+          onClick={() => navigateToFollowupsToday()}
           className="bg-white rounded-2xl p-3.5 pb-2 border border-slate-200/90 shadow-xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer"
         >
           <div className="flex items-center gap-2.5">
@@ -462,7 +451,7 @@ export default function DashboardModule() {
 
         {/* Card 4: Appointments Today */}
         <div
-          onClick={() => setActiveModule('appointments')}
+          onClick={() => navigateToAppointmentsToday()}
           className="bg-white rounded-2xl p-3.5 pb-2 border border-slate-200/90 shadow-xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer"
         >
           <div className="flex items-center gap-2.5">

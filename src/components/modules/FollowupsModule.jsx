@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { getTodayDateStr } from '../../utils/dateFilterUtils';
 import {
   Clock,
   Plus,
@@ -86,6 +87,9 @@ export default function FollowupsModule() {
     filteredFollowups,
     leads,
     patients,
+    doctors,
+    activeDoctors,
+    appointments,
     setSelectedLeadId,
     setIsLeadDetailsOpen,
     setPatient360Data,
@@ -102,21 +106,41 @@ export default function FollowupsModule() {
     setIsBookApptSlotOpen,
     completeFollowupTask,
     deleteFollowup,
-    showToast
+    showToast,
+    followupStatusFilter,
+    setFollowupStatusFilter,
+    followupActiveTab,
+    setFollowupActiveTab
   } = useApp();
 
   // Primary Tab: 'leads' vs 'patients'
-  const [activeTab, setActiveTab] = useState('leads'); // 'leads' or 'patients'
+  const [activeTab, setActiveTab] = useState(followupActiveTab || 'leads');
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState(followupStatusFilter || 'ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [doctorFilter, setDoctorFilter] = useState('ALL');
 
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // IST-safe today string
+  const todayStr = getTodayDateStr();
+
+  // Sync when dashboard navigates here with filter preset
+  useEffect(() => {
+    if (followupActiveTab && followupActiveTab !== activeTab) {
+      setActiveTab(followupActiveTab);
+    }
+    if (followupStatusFilter && followupStatusFilter !== 'ALL') {
+      setStatusFilter(followupStatusFilter);
+      // Clear preset after consuming so back-navigation doesn't re-apply
+      setFollowupStatusFilter('ALL');
+    }
+    if (followupActiveTab) {
+      setFollowupActiveTab('leads'); // reset to default
+    }
+  }, [followupActiveTab, followupStatusFilter]);
 
   // Helper: get previous day YYYY-MM-DD
   const getPrevDay = (dateStr) => {
@@ -154,8 +178,16 @@ export default function FollowupsModule() {
 
   // Distinct raw lists
   const leadFollowupsRaw = useMemo(() => {
-    return filteredFollowups.filter(f => f.personType === 'lead' || !!f.leadId);
-  }, [filteredFollowups]);
+    return filteredFollowups.filter(f => {
+      if (!(f.personType === 'lead' || !!f.leadId)) return false;
+      // Skip follow-ups whose lead has been deleted
+      if (f.leadId) {
+        const leadRecord = leads.find(l => l.id === f.leadId);
+        if (!leadRecord || leadRecord.isDeleted) return false;
+      }
+      return true;
+    });
+  }, [filteredFollowups, leads]);
 
   const patientFollowupsRaw = useMemo(() => {
     return filteredFollowups.filter(f => (f.personType === 'patient' || !!f.patientId) && !f.leadId);
@@ -176,6 +208,8 @@ export default function FollowupsModule() {
     const cards = [];
     map.forEach((items, groupKey) => {
       const leadRecord = items[0].leadId ? leads.find(l => l.id === items[0].leadId) : null;
+      // Skip cards for deleted leads
+      if (leadRecord?.isDeleted) return;
       const resolvedName = leadRecord?.name || items[0].targetName || 'Unknown Lead';
       const resolvedPhone = leadRecord?.phone || items[0].phone || '';
       const resolvedTreatment = leadRecord?.treatment || items[0].treatment || '';
@@ -257,6 +291,39 @@ export default function FollowupsModule() {
       const resolvedPatientName = patientRecord?.name || items[0].targetName || 'Unknown Patient';
       const resolvedPhone = patientRecord?.phone || items[0].phone || '';
 
+      // Doctor resolution from central Doctor Management
+      const resolveCardDoctor = (item) => {
+        if (!item) return { id: null, name: 'Unassigned' };
+        if (item.doctorId) {
+          const doc = (doctors || []).find(d => d.id === item.doctorId);
+          if (doc) return { id: doc.id, name: doc.name };
+        }
+        if (item.appointmentId) {
+          const appt = (appointments || []).find(a => a.id === item.appointmentId);
+          if (appt) {
+            if (appt.doctorId) {
+              const doc = (doctors || []).find(d => d.id === appt.doctorId);
+              if (doc) return { id: doc.id, name: doc.name };
+            }
+            if (appt.doctorName) {
+              const doc = (doctors || []).find(d => d.name.toLowerCase() === appt.doctorName.toLowerCase());
+              if (doc) return { id: doc.id, name: doc.name };
+              return { id: null, name: appt.doctorName };
+            }
+          }
+        }
+        if (item.doctorName) {
+          const doc = (doctors || []).find(d => d.name.toLowerCase() === item.doctorName.toLowerCase() || d.name.toLowerCase().includes(item.doctorName.toLowerCase()) || item.doctorName.toLowerCase().includes(d.name.toLowerCase()));
+          if (doc) return { id: doc.id, name: doc.name };
+          return { id: null, name: item.doctorName };
+        }
+        if (item.assignedTo) {
+          const doc = (doctors || []).find(d => item.assignedTo.toLowerCase().includes(d.name.toLowerCase()) || d.name.toLowerCase().includes(item.assignedTo.toLowerCase()));
+          if (doc) return { id: doc.id, name: doc.name };
+        }
+        return { id: null, name: 'Unassigned' };
+      };
+
       if (isAppointment) {
         const reminder1D = items.find(i =>
           i.reminderType?.includes('1 Day Before') ||
@@ -285,7 +352,9 @@ export default function FollowupsModule() {
           '10:00 AM';
 
         const prevDay = reminder1D?.scheduledDate || getPrevDay(appointmentDate);
-        const doctorName = items[0].doctorName || items[0].assignedTo;
+        const docInfo = resolveCardDoctor(items[0]);
+        const doctorName = docInfo.name;
+        const doctorId = docInfo.id;
 
         let cardCategory = 'Appointment Reminder';
         if (todayStr === prevDay) {
@@ -322,6 +391,7 @@ export default function FollowupsModule() {
           targetName: resolvedPatientName,
           phone: resolvedPhone,
           treatment: items[0].treatment || 'Dental Consultation',
+          doctorId,
           doctorName,
           appointmentDate,
           appointmentTime,
@@ -338,6 +408,7 @@ export default function FollowupsModule() {
       } else {
         const primaryItem = items[0];
         const computedStatus = evaluateFollowup(primaryItem);
+        const docInfo = resolveCardDoctor(primaryItem);
 
         cards.push({
           id: `PAT-CARD-${groupKey}`,
@@ -347,6 +418,8 @@ export default function FollowupsModule() {
           targetName: resolvedPatientName,
           phone: resolvedPhone,
           treatment: primaryItem.treatment,
+          doctorId: docInfo.id,
+          doctorName: docInfo.name,
           cardCategory: primaryItem.category || 'Patient Follow-up',
           computedStatus,
           scheduledDate: primaryItem.scheduledDate,
@@ -360,24 +433,42 @@ export default function FollowupsModule() {
     });
 
     return cards;
-  }, [patientFollowupsRaw, todayStr]);
+  }, [patientFollowupsRaw, todayStr, doctors, appointments]);
 
-  // Tab badge counts
-  const leadCounts = useMemo(() => ({
-    total: consolidatedLeadCards.length,
-    dueToday: consolidatedLeadCards.filter(c => c.computedStatus === 'Due Today').length,
-    overdue: consolidatedLeadCards.filter(c => c.computedStatus === 'Overdue').length,
-    completed: consolidatedLeadCards.filter(c => c.computedStatus === 'Completed').length,
-    pending: consolidatedLeadCards.filter(c => c.computedStatus === 'Pending' || c.computedStatus === 'Due Today' || c.computedStatus === 'Overdue').length
-  }), [consolidatedLeadCards]);
+  // Tab badge counts (Task count must strictly include only incomplete follow-ups)
+  const leadCounts = useMemo(() => {
+    const incompleteCards = consolidatedLeadCards.filter(c => c.computedStatus !== 'Completed' && c.computedStatus !== 'Cancelled');
+    const dueToday = consolidatedLeadCards.filter(c => c.computedStatus === 'Due Today').length;
+    const overdue = consolidatedLeadCards.filter(c => c.computedStatus === 'Overdue').length;
+    const completed = consolidatedLeadCards.filter(c => c.computedStatus === 'Completed').length;
+    const tasks = incompleteCards.length;
 
-  const patientCounts = useMemo(() => ({
-    total: consolidatedPatientCards.length,
-    dueToday: consolidatedPatientCards.filter(c => c.computedStatus === 'Due Today').length,
-    overdue: consolidatedPatientCards.filter(c => c.computedStatus === 'Overdue').length,
-    completed: consolidatedPatientCards.filter(c => c.computedStatus === 'Completed').length,
-    pending: consolidatedPatientCards.filter(c => c.computedStatus === 'Pending' || c.computedStatus === 'Due Today' || c.computedStatus === 'Overdue').length
-  }), [consolidatedPatientCards]);
+    return {
+      total: tasks, // Only incomplete tasks
+      tasks,
+      dueToday,
+      overdue,
+      completed,
+      pending: tasks
+    };
+  }, [consolidatedLeadCards]);
+
+  const patientCounts = useMemo(() => {
+    const incompleteCards = consolidatedPatientCards.filter(c => c.computedStatus !== 'Completed' && c.computedStatus !== 'Cancelled');
+    const dueToday = consolidatedPatientCards.filter(c => c.computedStatus === 'Due Today').length;
+    const overdue = consolidatedPatientCards.filter(c => c.computedStatus === 'Overdue').length;
+    const completed = consolidatedPatientCards.filter(c => c.computedStatus === 'Completed').length;
+    const tasks = incompleteCards.length;
+
+    return {
+      total: tasks, // Only incomplete tasks
+      tasks,
+      dueToday,
+      overdue,
+      completed,
+      pending: tasks
+    };
+  }, [consolidatedPatientCards]);
 
   const totalCenterDueToday = leadCounts.dueToday + patientCounts.dueToday;
   const totalCenterOverdue = leadCounts.overdue + patientCounts.overdue;
@@ -399,8 +490,9 @@ export default function FollowupsModule() {
 
       const matchesStatus =
         statusFilter === 'ALL' ||
-        card.computedStatus === statusFilter ||
-        card.primaryItem?.status === statusFilter;
+        (statusFilter === 'Due Today'
+          ? card.computedStatus === 'Due Today'
+          : card.computedStatus === statusFilter || card.primaryItem?.status === statusFilter);
 
       const matchesCategory =
         categoryFilter === 'ALL' ||
@@ -409,8 +501,9 @@ export default function FollowupsModule() {
 
       const matchesDoctor =
         doctorFilter === 'ALL' ||
-        (card.doctorName || '').includes(doctorFilter) ||
-        (card.assignedTo || '').includes(doctorFilter);
+        card.doctorId === doctorFilter ||
+        card.doctorName === doctorFilter ||
+        (card.doctorName || '').toLowerCase().includes(doctorFilter.toLowerCase());
 
       return matchesSearch && matchesStatus && matchesCategory && matchesDoctor;
     });
@@ -863,10 +956,9 @@ export default function FollowupsModule() {
             className="text-xs font-bold bg-[#F8FAFD] border border-slate-200 rounded-xl px-3.5 py-2 text-[#102D55] outline-none cursor-pointer hover:bg-slate-100 transition-colors"
           >
             <option value="ALL">All Doctors</option>
-            <option value="Priya">Dr. Priya Sharma</option>
-            <option value="Arun">Dr. Arun Agarwal</option>
-            <option value="Kavitha">Dr. Kavitha</option>
-            <option value="Keerthana">Dr. Keerthana Mohan</option>
+            {(activeDoctors && activeDoctors.length > 0 ? activeDoctors : (doctors || []).filter(d => (d.status || 'Active') === 'Active')).map(doc => (
+              <option key={doc.id} value={doc.name}>{doc.name}</option>
+            ))}
           </select>
         )}
 
@@ -958,9 +1050,22 @@ export default function FollowupsModule() {
                       </div>
                     </div>
 
-                    <span className="text-[11px] font-bold text-[#1670E8] px-2.5 py-0.5 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE]/60 shrink-0">
-                      {card.leadId ? `Lead ID: ${card.leadId}` : `UHID: ${card.patientId || 'IND'}`}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-bold text-[#1670E8] px-2.5 py-0.5 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE]/60 shrink-0">
+                        {card.leadId ? `Lead ID: ${card.leadId}` : `UHID: ${card.patientId || 'IND'}`}
+                      </span>
+                      {activeTab === 'patients' && !card.isAppointment && (
+                        card.doctorName && card.doctorName !== 'Unassigned' ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-[#1670E8] border border-blue-100 truncate max-w-[120px]">
+                            {card.doctorName}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200">
+                            Unassigned
+                          </span>
+                        )
+                      )}
+                    </div>
                   </div>
 
                   {/* ── APPOINTMENT CARD: Combined Schedule & Dual Reminder Box ── */}
@@ -972,9 +1077,13 @@ export default function FollowupsModule() {
                           <Calendar size={13} className="text-[#1670E8]" />
                           <span>Appt: {card.appointmentDate} at {card.appointmentTime}</span>
                         </div>
-                        {card.doctorName && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-[#1670E8] border border-blue-100 truncate max-w-[120px]">
+                        {card.doctorName && card.doctorName !== 'Unassigned' ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-[#1670E8] border border-blue-100 truncate max-w-[130px]">
                             {card.doctorName}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200">
+                            Unassigned
                           </span>
                         )}
                       </div>

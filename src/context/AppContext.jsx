@@ -98,6 +98,43 @@ export const USERS = [
   }
 ];
 
+const INITIAL_DENTAL_IMAGES = [
+  {
+    id: 'IMG-DEMO-01',
+    patientId: 'IND-0292',
+    patientName: 'Karthik Subramanian',
+    patientUhid: 'IND-0292',
+    patientPhone: '9840123456',
+    title: 'Adult 32 Teeth – Full Panoramic Radiograph',
+    templateName: 'Adult Teeth – 32 Teeth',
+    templateId: 'adult_32',
+    doctorId: 'DOC-01',
+    doctorName: 'Dr. Priya Sharma',
+    notes: 'Maxillary right molar restored. Lower left #36 advised for zirconia crown.',
+    includeOnRx: true,
+    date: '2026-11-20',
+    createdAt: '2026-11-20T10:30:00.000Z',
+    imageData: '/dental-templates/adult-teeth-32.jpg'
+  },
+  {
+    id: 'IMG-DEMO-02',
+    patientId: 'IND-0292',
+    patientName: 'Karthik Subramanian',
+    patientUhid: 'IND-0292',
+    patientPhone: '9840123456',
+    title: 'Molar Anatomy – Crown, Pulp & Root Canals',
+    templateName: 'Tooth Anatomy – Roots & Pulp',
+    templateId: 'tooth_anatomy',
+    doctorId: 'DOC-01',
+    doctorName: 'Dr. Priya Sharma',
+    notes: 'Patient consultation on endodontic anatomy and root canal procedure stages.',
+    includeOnRx: true,
+    date: '2026-11-22',
+    createdAt: '2026-11-22T14:15:00.000Z',
+    imageData: '/dental-templates/tooth-anatomy-roots-pulp.jpg'
+  }
+];
+
 export const AppProvider = ({ children }) => {
   // Navigation
   const [activeModule, setActiveModule] = useState('dashboard');
@@ -194,6 +231,8 @@ export const AppProvider = ({ children }) => {
   const [labOrders, setLabOrders] = useState(INITIAL_LAB_ORDERS);
   const [invoices, setInvoices] = useState(() => loadFromStorage('indus_invoices_v4', INITIAL_INVOICES));
   const [treatmentPlans, setTreatmentPlans] = useState(() => loadFromStorage('indus_treatment_plans_v4', INITIAL_TREATMENT_PLANS));
+  const [dentalImages, setDentalImages] = useState(() => loadFromStorage('indus_dental_images_v1', INITIAL_DENTAL_IMAGES));
+  const [activeDrawingToLoad, setActiveDrawingToLoad] = useState(null);
   const [treatments, setTreatments] = useState(() => loadFromStorage('indus_treatments_v2', INITIAL_TREATMENTS));
   const [inventory, setInventory] = useState(INITIAL_INVENTORY);
   const [prescriptions, setPrescriptions] = useState(INITIAL_PRESCRIPTIONS);
@@ -227,6 +266,10 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     try { localStorage.setItem('indus_treatment_plans_v4', JSON.stringify(treatmentPlans)); } catch (e) {}
   }, [treatmentPlans]);
+
+  useEffect(() => {
+    try { localStorage.setItem('indus_dental_images_v1', JSON.stringify(dentalImages)); } catch (e) {}
+  }, [dentalImages]);
 
   useEffect(() => {
     try { localStorage.setItem('indus_treatments_v2', JSON.stringify(treatments)); } catch (e) {}
@@ -973,6 +1016,29 @@ export const AppProvider = ({ children }) => {
   const deleteTreatmentPlan = (planId) => {
     setTreatmentPlans(prev => prev.filter(tp => tp.id !== planId));
     showToast('Treatment plan removed');
+  };
+
+  // Dental Images & Clinical Drawings Actions
+  const saveDentalImage = (newDrawing) => {
+    const drawing = {
+      id: `IMG-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      createdAt: new Date().toISOString(),
+      date: new Date().toISOString().split('T')[0],
+      ...newDrawing
+    };
+    setDentalImages(prev => [drawing, ...prev]);
+    showToast('Clinical drawing saved to Patient Profile successfully!');
+    return drawing;
+  };
+
+  const updateDentalImage = (drawingId, updatedFields) => {
+    setDentalImages(prev => prev.map(img => img.id === drawingId ? { ...img, ...updatedFields, updatedAt: new Date().toISOString() } : img));
+    showToast('Clinical drawing updated successfully!');
+  };
+
+  const deleteDentalImage = (drawingId) => {
+    setDentalImages(prev => prev.filter(img => img.id !== drawingId));
+    showToast('Dental drawing removed from patient profile');
   };
 
   // ── Delete Appointment (soft-marks as deleted, removes from lists) ─────────
@@ -2058,6 +2124,10 @@ export const AppProvider = ({ children }) => {
         invoices,
         filteredInvoices,
         treatmentPlans,
+        dentalImages,
+        setDentalImages,
+        activeDrawingToLoad,
+        setActiveDrawingToLoad,
         treatments,
         enabledTreatments,
         inventory,
@@ -2102,6 +2172,9 @@ export const AppProvider = ({ children }) => {
         addTreatmentPlan,
         updateTreatmentPlan,
         deleteTreatmentPlan,
+        saveDentalImage,
+        updateDentalImage,
+        deleteDentalImage,
         recordPayment,
         addAppointment,
         updateAppointmentStatus,

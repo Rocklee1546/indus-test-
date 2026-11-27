@@ -24,7 +24,12 @@ import {
   ArrowDown,
   Sparkles,
   Activity,
-  Layers
+  Layers,
+  Camera,
+  ExternalLink,
+  Eye,
+  ArrowRight,
+  Users
 } from 'lucide-react';
 
 const PRESET_ROLES = [
@@ -54,6 +59,9 @@ const PRESET_TREATMENT_CATEGORIES = [
 
 export default function SettingsModule() {
   const {
+    adminProfile,
+    updateAdminProfile,
+    getAdminInitials,
     doctors,
     addDoctor,
     updateDoctor,
@@ -61,6 +69,7 @@ export default function SettingsModule() {
     deleteDoctor,
     appointments,
     leads,
+    patients,
     treatments,
     enabledTreatments,
     addTreatment,
@@ -70,10 +79,129 @@ export default function SettingsModule() {
     moveTreatment,
     showToast,
     settingsTab,
-    setSettingsTab
+    setSettingsTab,
+    setSelectedLeadId,
+    setIsLeadDetailsOpen,
+    setActivePatientId,
+    setPatient360Data
   } = useApp();
 
   const [activeTab, setActiveTab] = useState(settingsTab || 'general');
+
+  // Enquiries modal state for Treatment Management
+  const [viewingTreatmentEnquiries, setViewingTreatmentEnquiries] = useState(null);
+
+  // Helper to compute genuine unique active enquiries for a treatment
+  const getTreatmentEnquiries = (treatment) => {
+    if (!treatment) return [];
+    const tNameLower = (treatment.name || '').toLowerCase();
+
+    const matchesTreatment = (str) => {
+      if (!str) return false;
+      const sLower = str.toLowerCase();
+      return sLower === tNameLower || sLower.includes(tNameLower) || tNameLower.includes(sLower);
+    };
+
+    const results = [];
+    const seenPersons = new Set();
+
+    // 1. Genuine Active Prospective Leads (exclude deleted and Lost Lead)
+    (leads || []).forEach(l => {
+      if (l.isDeleted || l.status === 'Lost Lead') return;
+      if (!matchesTreatment(l.treatment)) return;
+
+      const personKey = (l.phone || '').replace(/\D/g, '') || l.id;
+      if (seenPersons.has(personKey)) return;
+      seenPersons.add(personKey);
+
+      results.push({
+        id: l.id,
+        key: `lead_${l.id}`,
+        type: 'Lead Enquiry',
+        isLead: true,
+        leadId: l.id,
+        patientId: l.convertedPatientId || null,
+        name: l.name,
+        phone: l.phone || 'Not provided',
+        treatment: l.treatment || treatment.name,
+        status: l.status,
+        date: l.date || (l.createdAt ? l.createdAt.split('T')[0] : 'Recent'),
+        record: l
+      });
+    });
+
+    // 2. Active Patient Bookings (exclude cancelled appointments)
+    (appointments || []).forEach(a => {
+      if (a.status === 'Cancelled') return;
+      if (!matchesTreatment(a.treatmentType)) return;
+
+      const personKey = (a.phone || '').replace(/\D/g, '') || a.patientId || a.id;
+      if (seenPersons.has(personKey)) return; // Avoid double counting if already captured via lead
+      seenPersons.add(personKey);
+
+      results.push({
+        id: a.patientId || a.id,
+        key: `appt_${a.id}`,
+        type: 'Patient Booking',
+        isLead: false,
+        leadId: a.leadId || null,
+        patientId: a.patientId,
+        name: a.patientName,
+        phone: a.phone || 'Not provided',
+        treatment: a.treatmentType || treatment.name,
+        status: `Booked (${a.status})`,
+        date: a.date,
+        record: a
+      });
+    });
+
+    return results;
+  };
+
+  // Admin Profile local form state
+  const [adminName, setAdminName] = useState(adminProfile?.name || 'Dr. Priya Sharma');
+  const [adminRole, setAdminRole] = useState(adminProfile?.designation || 'Chief Dental Surgeon & Implantologist');
+  const [adminPhoto, setAdminPhoto] = useState(adminProfile?.photo || '');
+
+  // Keep synced if adminProfile changes externally
+  useEffect(() => {
+    if (adminProfile) {
+      setAdminName(adminProfile.name || 'Dr. Priya Sharma');
+      setAdminRole(adminProfile.designation || 'Chief Dental Surgeon & Implantologist');
+      setAdminPhoto(adminProfile.photo || '');
+    }
+  }, [adminProfile]);
+
+  const computedInitials = getAdminInitials ? getAdminInitials(adminName) : 'PS';
+
+  const handleSaveAdminProfile = (e) => {
+    if (e) e.preventDefault();
+    if (!adminName.trim()) {
+      showToast('Admin / Doctor Name cannot be empty.', 'error');
+      return;
+    }
+    updateAdminProfile({
+      name: adminName.trim(),
+      designation: adminRole.trim() || 'Chief Dental Surgeon & Implantologist',
+      photo: adminPhoto || null
+    });
+    showToast('Admin Profile saved successfully! Header identity updated.', 'success');
+  };
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        showToast('Image file too large. Please select an image under 2MB.', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setAdminPhoto(event.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   useEffect(() => {
     if (settingsTab) {
@@ -154,15 +282,6 @@ export default function SettingsModule() {
     setDeleteConfirmTreatment(null);
   };
 
-  const auditLogs = [
-    { time: '10:50 AM', user: 'Sneha R (Reception)', action: 'Registered Patient IND-0292 (Mr Gokul)', module: 'Patient Registration' },
-    { time: '11:05 AM', user: 'Dr. Priya Sharma', action: 'Created Root Canal Treatment Plan for Tooth 46', module: 'Consultation' },
-    { time: '11:15 AM', user: 'Dr. Priya Sharma', action: 'Signed & Finalized Treatment Note TX-9041', module: 'Draw & Explain' },
-    { time: '11:20 AM', user: 'Praveen M (Billing)', action: 'Issued Tax Invoice IND-INV-082 (₹6,500)', module: 'Billing' },
-    { time: '09:30 AM', user: 'Deepak Raj (Reception)', action: 'Scheduled Follow-up Reminders for Today', module: 'Follow-ups' },
-    { time: '09:00 AM', user: 'Karthik S (Manager)', action: 'Stock update: 10 packs ProTaper Gold Rotary Files', module: 'Inventory' }
-  ];
-
   const handleOpenAddDoctor = () => {
     setEditingDoctor(null);
     setDocForm({
@@ -242,7 +361,7 @@ export default function SettingsModule() {
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Configure hospital branding, clinic operations, WhatsApp credentials, and security audit logs
+            Configure hospital branding, clinic operations, and WhatsApp credentials
           </p>
         </div>
 
@@ -251,8 +370,7 @@ export default function SettingsModule() {
           {[
             { id: 'general', label: 'Clinic Profile' },
             { id: 'doctors', label: 'Doctor Management' },
-            { id: 'treatments', label: 'Treatment Management' },
-            { id: 'audit_logs', label: 'HIPAA / DPDP Audit Logs' }
+            { id: 'treatments', label: 'Treatment Management' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -333,6 +451,128 @@ export default function SettingsModule() {
               <Save size={14} />
               <span>Save Configurations</span>
             </button>
+          </div>
+
+          {/* ── ADMIN PROFILE SECTION ── */}
+          <div className="pt-6 mt-2 border-t border-slate-200/90 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-[#102A50] uppercase tracking-wider flex items-center gap-2">
+                <UserCheck size={16} className="text-[#1769D2]" />
+                <span>Admin Profile</span>
+              </h2>
+              <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200/60">
+                Top-Right Header Identity
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 -mt-2">
+              Configure administrator name, clinical designation, and photo displayed in the top-right header across all pages.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Admin / Doctor Name *
+                </label>
+                <input
+                  type="text"
+                  value={adminName}
+                  onChange={(e) => setAdminName(e.target.value)}
+                  placeholder="e.g. Dr. Priya Sharma"
+                  className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold outline-none focus:border-[#1769D2] focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Designation / Role *
+                </label>
+                <input
+                  type="text"
+                  value={adminRole}
+                  onChange={(e) => setAdminRole(e.target.value)}
+                  placeholder="e.g. Chief Dental Surgeon & Implantologist"
+                  className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-semibold outline-none focus:border-[#1769D2] focus:bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              {/* Profile Initials (auto-generated from name) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Profile Initials (Auto-Generated)
+                </label>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 border-2 border-blue-500/30 text-[#1769D2] font-black text-sm flex items-center justify-center tracking-wider shrink-0 shadow-xs">
+                    {computedInitials}
+                  </div>
+                  <input
+                    type="text"
+                    value={computedInitials}
+                    readOnly
+                    className="flex-1 bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-bold tracking-widest cursor-not-allowed select-none outline-none"
+                    title="Automatically generated from Admin / Doctor Name"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Generated automatically from the entered name</p>
+              </div>
+
+              {/* Optional Profile Photo */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Optional Profile Photo
+                </label>
+                <div className="flex items-center gap-2.5">
+                  {adminPhoto ? (
+                    <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-blue-500 shrink-0 shadow-xs">
+                      <img src={adminPhoto} alt="Admin" className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-400 shrink-0">
+                      <Camera size={16} />
+                    </div>
+                  )}
+
+                  <div className="flex-1 flex items-center gap-2">
+                    <label className="flex-1 cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                      <span className="w-full block text-center px-3 py-2 bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-700 font-bold transition-colors">
+                        {adminPhoto ? 'Change Photo' : 'Upload Photo'}
+                      </span>
+                    </label>
+
+                    {adminPhoto && (
+                      <button
+                        type="button"
+                        onClick={() => setAdminPhoto('')}
+                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl border border-rose-200 transition-colors"
+                        title="Remove photo (fallback to initials)"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">PNG, JPG under 2MB. If omitted, initials will be shown.</p>
+              </div>
+            </div>
+
+            {/* Save Admin Profile Button */}
+            <div className="pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={handleSaveAdminProfile}
+                className="px-5 py-2.5 bg-[#1769D2] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Save size={14} />
+                <span>Save Admin Profile</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -516,7 +756,8 @@ export default function SettingsModule() {
                 <tbody className="divide-y divide-slate-100">
                   {treatments.map((trt, idx) => {
                     const isEnabled = trt.enabled !== false;
-                    const enquiryCount = leads.filter(l => !l.isDeleted && l.treatment && (l.treatment.toLowerCase() === trt.name.toLowerCase() || l.treatment.toLowerCase().includes(trt.name.toLowerCase()) || trt.name.toLowerCase().includes(l.treatment.toLowerCase()))).length;
+                    const enquiryList = getTreatmentEnquiries(trt);
+                    const enquiryCount = enquiryList.length;
                     const apptCount = appointments.filter(a => a.status !== 'Cancelled' && a.treatmentType && (a.treatmentType.toLowerCase() === trt.name.toLowerCase() || a.treatmentType.toLowerCase().includes(trt.name.toLowerCase()) || trt.name.toLowerCase().includes(a.treatmentType.toLowerCase()))).length;
 
                     return (
@@ -566,11 +807,17 @@ export default function SettingsModule() {
                           </span>
                         </td>
 
-                        {/* Enquiries */}
+                        {/* Enquiries - Clickable */}
                         <td className="py-3.5 px-4 text-center">
-                          <span className="font-extrabold text-[#1769D2] bg-blue-50 px-2 py-0.5 rounded-lg text-xs">
-                            {enquiryCount}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setViewingTreatmentEnquiries({ treatment: trt, records: enquiryList })}
+                            className="font-extrabold text-[#1769D2] bg-blue-50 hover:bg-blue-100 hover:ring-2 hover:ring-blue-300 px-3 py-1 rounded-xl text-xs transition-all cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                            title={`Click to view ${enquiryCount} genuine active enquiries for ${trt.name}`}
+                          >
+                            <span>{enquiryCount}</span>
+                            <ExternalLink size={11} className="opacity-70" />
+                          </button>
                         </td>
 
                         {/* Appointments */}
@@ -621,36 +868,6 @@ export default function SettingsModule() {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── TAB 3: AUDIT LOGS ── */}
-      {activeTab === 'audit_logs' && (
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <div className="text-xs font-bold text-[#102A50] uppercase tracking-wider flex items-center gap-2">
-              <Lock size={15} className="text-[#1769D2]" />
-              <span>Healthcare Activity & Security Audit Logs (DPDP Act Compliant)</span>
-            </div>
-            <span className="text-[10px] text-slate-400">Timestamped to Indian Standard Time (IST)</span>
-          </div>
-
-          <div className="divide-y divide-slate-100">
-            {auditLogs.map((log, idx) => (
-              <div key={idx} className="p-3.5 px-5 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <span className="text-[11px] font-bold text-slate-400 w-16">{log.time}</span>
-                  <div>
-                    <span className="font-bold text-[#102A50]">{log.user}: </span>
-                    <span className="text-slate-700">{log.action}</span>
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                  {log.module}
-                </span>
-              </div>
-            ))}
           </div>
         </div>
       )}
@@ -976,6 +1193,165 @@ export default function SettingsModule() {
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-500/20 transition-all cursor-pointer"
               >
                 Delete Treatment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Treatment Active Enquiries Detail ── */}
+      {viewingTreatmentEnquiries && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-50/50 to-slate-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 text-[#1769D2] flex items-center justify-center font-bold">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-[#102A50] flex items-center gap-2">
+                    <span>{viewingTreatmentEnquiries.treatment.name}</span>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-[#1769D2]">
+                      {viewingTreatmentEnquiries.records.length} Active
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Genuine active enquiries and patient bookings for this procedure
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingTreatmentEnquiries(null)}
+                className="p-1.5 rounded-xl hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-5 overflow-y-auto flex-1">
+              {viewingTreatmentEnquiries.records.length === 0 ? (
+                <div className="py-12 text-center">
+                  <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                    <Users size={24} />
+                  </div>
+                  <h4 className="font-bold text-slate-700 text-sm">No Active Enquiries Found</h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                    There are currently no active prospective leads or pending bookings for {viewingTreatmentEnquiries.treatment.name}.
+                  </p>
+                </div>
+              ) : (
+                <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#F8FAFC] border-b border-slate-200/80 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                      <tr>
+                        <th className="py-3 px-3.5">Name & Contact</th>
+                        <th className="py-3 px-3.5">Lead / UHID</th>
+                        <th className="py-3 px-3.5">Type & Status</th>
+                        <th className="py-3 px-3.5">Date</th>
+                        <th className="py-3 px-3.5 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {viewingTreatmentEnquiries.records.map((rec) => {
+                        const isLead = rec.isLead;
+                        const displayId = isLead
+                          ? (rec.leadId || `LD-${rec.id}`)
+                          : (rec.patientId || 'IND-PAT');
+
+                        return (
+                          <tr key={rec.key} className="hover:bg-blue-50/40 transition-colors">
+                            {/* Name & Contact */}
+                            <td className="py-3 px-3.5">
+                              <div className="font-bold text-[#102A50]">{rec.name || 'Unnamed'}</div>
+                              <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                <Phone size={10} className="text-slate-400" />
+                                <span>{rec.phone || 'No phone'}</span>
+                              </div>
+                            </td>
+
+                            {/* Lead ID / UHID */}
+                            <td className="py-3 px-3.5">
+                              <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+                                {displayId}
+                              </span>
+                            </td>
+
+                            {/* Type & Status */}
+                            <td className="py-3 px-3.5">
+                              <div className="flex flex-col gap-1 items-start">
+                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${
+                                  isLead ? 'bg-blue-50 text-blue-700 border border-blue-200/60' : 'bg-teal-50 text-teal-700 border border-teal-200/60'
+                                }`}>
+                                  {rec.type}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                                  {rec.status || 'Active'}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Date */}
+                            <td className="py-3 px-3.5 text-slate-600 text-[11px] font-medium whitespace-nowrap">
+                              {rec.date || 'Recent'}
+                            </td>
+
+                            {/* Action */}
+                            <td className="py-3 px-3.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setViewingTreatmentEnquiries(null);
+                                  if (isLead) {
+                                    if (setSelectedLeadId) setSelectedLeadId(rec.leadId || rec.id);
+                                    if (setIsLeadDetailsOpen) setIsLeadDetailsOpen(true);
+                                  } else {
+                                    const p = (patients || []).find(pt => pt.id === rec.patientId || pt.uhid === rec.patientId || pt.phone === rec.phone);
+                                    if (p && setPatient360Data) {
+                                      setPatient360Data(p);
+                                      if (setActivePatientId) setActivePatientId(p.id);
+                                    } else {
+                                      const mockPt = {
+                                        id: rec.patientId || rec.id,
+                                        uhid: rec.patientId || 'IND-PAT',
+                                        name: rec.name,
+                                        phone: rec.phone,
+                                        treatment: rec.treatment
+                                      };
+                                      if (setPatient360Data) setPatient360Data(mockPt);
+                                      if (setActivePatientId) setActivePatientId(mockPt.id);
+                                    }
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#1769D2] font-bold text-xs rounded-xl inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                                title="Open full profile details"
+                              >
+                                <Eye size={12} />
+                                <span>View Profile</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between">
+              <span className="text-xs text-slate-500">
+                Total Unique Active Enquiries: <b>{viewingTreatmentEnquiries.records.length}</b>
+              </span>
+              <button
+                type="button"
+                onClick={() => setViewingTreatmentEnquiries(null)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>

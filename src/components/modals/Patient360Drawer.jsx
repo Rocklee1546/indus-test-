@@ -33,7 +33,9 @@ import {
   AlertTriangle,
   ArrowLeft,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Eye,
+  Download
 } from 'lucide-react';
 
 // Time slots for appointment booking
@@ -57,6 +59,11 @@ export default function Patient360Drawer() {
     addTreatmentPlan,
     updateTreatmentPlan,
     deleteTreatmentPlan,
+    dentalImages,
+    deleteDentalImage,
+    setActiveDrawingToLoad,
+    setActivePatientId,
+    setActiveModule,
     invoices,
     addInvoice,
     recordPayment,
@@ -193,6 +200,7 @@ export default function Patient360Drawer() {
   const [paymentMethodInput, setPaymentMethodInput] = useState('UPI (GPay)');
   const [paymentNotesInput, setPaymentNotesInput] = useState('');
   const [activePrintInvoice, setActivePrintInvoice] = useState(null);
+  const [previewDentalImage, setPreviewDentalImage] = useState(null);
 
   // Sync state whenever patient changes
   useEffect(() => {
@@ -250,6 +258,7 @@ export default function Patient360Drawer() {
   const patientAppointments = appointments.filter(a => a.patientId === patient.id);
   const patientTreatmentPlans = treatmentPlans.filter(tp => tp.patientId === patient.id);
   const patientInvoices = invoices.filter(i => i.patientId === patient.id);
+  const patientDentalImages = (dentalImages || []).filter(img => img.patientId === patient.id || img.patientUhid === patient.id);
 
   // Compute Booked Slots for duplicate check
   const bookedSlotsForDoctorDate = new Set(
@@ -2027,6 +2036,176 @@ export default function Patient360Drawer() {
                   })
                 )}
               </div>
+
+              {/* ── DENTAL IMAGES & CLINICAL DRAWINGS SECTION ── */}
+              <div className="pt-6 border-t border-slate-200 space-y-4">
+                <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-blue-50 text-[#1769D2] flex items-center justify-center font-bold shadow-xs">
+                      <PenTool size={18} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-extrabold text-sm text-[#102A50]">Dental Images & Clinical Drawings</h3>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-[#1769D2]">
+                          {patientDentalImages.length} Saved
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Annotated OPG radiographs, tooth cross-sections, and clinical consultation diagrams for {patient.name}.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActivePatientId(patient.id);
+                      setPatient360Data(null);
+                      setActiveModule('draw_explain');
+                    }}
+                    className="px-3.5 py-2 bg-[#1769D2] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <PenTool size={14} />
+                    <span>+ New Drawing / Annotate</span>
+                  </button>
+                </div>
+
+                {patientDentalImages.length === 0 ? (
+                  <div className="p-8 text-center bg-white rounded-2xl border border-dashed border-slate-200">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 mx-auto flex items-center justify-center mb-2">
+                      <PenTool size={22} />
+                    </div>
+                    <p className="text-xs font-bold text-slate-700">No dental drawings or annotated X-rays on record for {patient.name}.</p>
+                    <p className="text-[11px] text-slate-400 mt-1 max-w-md mx-auto">
+                      Use the Draw & Explain module to annotate Adult/Child panoramic images, root anatomy, or patient radiographs and save them directly here.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActivePatientId(patient.id);
+                        setPatient360Data(null);
+                        setActiveModule('draw_explain');
+                      }}
+                      className="mt-3.5 px-4 py-2 bg-[#1769D2] text-white rounded-xl text-xs font-bold hover:bg-blue-700 cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                    >
+                      <PenTool size={13} />
+                      <span>Open Draw & Explain Canvas</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {patientDentalImages.map(img => (
+                      <div
+                        key={img.id}
+                        className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex flex-col group hover:shadow-md transition-all duration-200"
+                      >
+                        {/* Thumbnail preview with hover overlay */}
+                        <div
+                          className="relative aspect-video bg-slate-900 overflow-hidden cursor-pointer"
+                          onClick={() => setPreviewDentalImage(img)}
+                        >
+                          <img
+                            src={img.imageData}
+                            alt={img.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          />
+                          <div className="absolute inset-0 bg-slate-900/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <span className="px-2.5 py-1 rounded-lg bg-white text-slate-900 text-xs font-bold flex items-center gap-1 shadow-md">
+                              <Eye size={13} />
+                              <span>View High-Res</span>
+                            </span>
+                          </div>
+                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-black bg-slate-950/80 text-white backdrop-blur-xs">
+                            {img.templateName || 'Clinical Drawing'}
+                          </span>
+                          {img.includeOnRx && (
+                            <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md text-[9px] font-black bg-emerald-500/90 text-white">
+                              Rx Attached
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Details */}
+                        <div className="p-3.5 flex-1 flex flex-col justify-between">
+                          <div>
+                            <h4 className="font-extrabold text-xs text-[#102A50] line-clamp-1" title={img.title}>
+                              {img.title}
+                            </h4>
+                            <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5 flex-wrap">
+                              <span>📅 {img.date || 'Recent'}</span>
+                              <span>•</span>
+                              <span>👨‍⚕️ {img.doctorName?.startsWith('Dr.') ? img.doctorName : `Dr. ${img.doctorName || 'Doctor'}`}</span>
+                            </div>
+                            {img.notes && (
+                              <p className="text-[11px] text-slate-600 mt-2 line-clamp-2 bg-slate-50 p-2 rounded-lg leading-relaxed">
+                                {img.notes}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Actions: View, Edit/Annotate, Download, Delete */}
+                          <div className="flex items-center justify-between pt-3 mt-2.5 border-t border-slate-100 gap-1.5">
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewDentalImage(img)}
+                                className="px-2 py-1 text-xs font-bold text-slate-600 hover:text-[#1769D2] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                                title="View full-size image"
+                              >
+                                <Eye size={13} />
+                                <span>View</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDrawingToLoad(img);
+                                  setActivePatientId(patient.id);
+                                  setPatient360Data(null);
+                                  setActiveModule('draw_explain');
+                                }}
+                                className="px-2.5 py-1 text-xs font-bold text-[#1769D2] bg-blue-50/70 hover:bg-blue-100/80 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                                title="Open in Draw & Explain to add more annotations"
+                              >
+                                <PenTool size={13} />
+                                <span>Edit / Annotate</span>
+                              </button>
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const link = document.createElement('a');
+                                  link.href = img.imageData;
+                                  link.download = `${patient.name}_${img.title.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+                                  link.click();
+                                }}
+                                className="p-1.5 text-slate-500 hover:text-[#1769D2] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                title="Download Image"
+                              >
+                                <Download size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm(`Are you sure you want to delete "${img.title}" from ${patient.name}'s profile?`)) {
+                                    deleteDentalImage(img.id);
+                                  }
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                title="Delete Drawing"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -2512,6 +2691,84 @@ export default function Patient360Drawer() {
                 <Printer size={14} />
                 <span>Print Receipt</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── FULL-SCREEN PREVIEW MODAL FOR DENTAL IMAGES ── */}
+      {previewDentalImage && (
+        <div className="fixed inset-0 z-60 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200">
+            <div className="px-5 py-3.5 bg-[#092C60] text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-sm">{previewDentalImage.title}</h3>
+                <p className="text-xs text-blue-200">
+                  {patient.name} ({patient.id}) • {previewDentalImage.date} • {previewDentalImage.doctorName?.startsWith('Dr.') ? previewDentalImage.doctorName : `Dr. ${previewDentalImage.doctorName || 'Doctor'}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewDentalImage(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer transition-colors"
+                title="Close Preview"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex-1 bg-slate-950 flex items-center justify-center p-4 overflow-auto min-h-[350px]">
+              <img
+                src={previewDentalImage.imageData}
+                alt={previewDentalImage.title}
+                className="max-w-full max-h-[65vh] object-contain rounded-lg shadow-lg border border-slate-800"
+              />
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between flex-wrap gap-2 text-xs">
+              <div className="text-slate-600">
+                {previewDentalImage.notes ? (
+                  <span><b>Clinical Notes:</b> {previewDentalImage.notes}</span>
+                ) : (
+                  <span className="text-slate-400">No additional clinical notes attached.</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = previewDentalImage.imageData;
+                    link.download = `${patient.name}_${previewDentalImage.title.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+                    link.click();
+                  }}
+                  className="px-3.5 py-1.5 bg-[#1769D2] text-white rounded-xl font-bold flex items-center gap-1.5 hover:bg-blue-700 cursor-pointer shadow-xs transition-colors"
+                >
+                  <Download size={14} />
+                  <span>Download PNG</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveDrawingToLoad(previewDentalImage);
+                    setActivePatientId(patient.id);
+                    setPreviewDentalImage(null);
+                    setPatient360Data(null);
+                    setActiveModule('draw_explain');
+                  }}
+                  className="px-3.5 py-1.5 bg-emerald-600 text-white rounded-xl font-bold flex items-center gap-1.5 hover:bg-emerald-700 cursor-pointer shadow-xs transition-colors"
+                >
+                  <PenTool size={14} />
+                  <span>Edit in Canvas</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDentalImage(null)}
+                  className="px-3.5 py-1.5 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 cursor-pointer transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -36,8 +36,52 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const pendingLeadsCount = leads.filter(l => l.status === 'New' || l.status === 'Contacted' || l.status === 'Follow-up Required').length;
-  const pendingFollowupsCount = followups.filter(f => f.status !== 'Completed' && f.status !== 'Cancelled').length;
+  // Leads count: only active, unconverted leads (exclude Converted to Patient and hard-deleted)
+  const pendingLeadsCount = leads.filter(l =>
+    !l.isDeleted &&
+    l.status !== 'Converted to Patient'
+  ).length;
+
+  // Follow-ups badge in left sidebar:
+  // Formula: Total Follow-up Badge = Pending Prospective Lead Follow-Ups + Pending Existing Patient Follow-Ups.
+  // Strictly exclude completed and cancelled records.
+  const isIncomplete = (f) => f && f.status !== 'Completed' && f.status !== 'Cancelled';
+
+  // 1. Prospective Lead Follow-ups: count only incomplete tasks (consolidated by lead)
+  const prospectivePendingKeys = new Set();
+  followups.forEach(f => {
+    if ((f.personType === 'lead' || !!f.leadId) && isIncomplete(f)) {
+      if (f.leadId) {
+        const leadRecord = leads.find(l => l.id === f.leadId);
+        if (leadRecord?.isDeleted) return;
+      }
+      const key = f.leadId || f.phone || f.targetName;
+      if (key) prospectivePendingKeys.add(key);
+    }
+  });
+
+  // 2. Existing Patient Follow-ups: count only incomplete tasks (consolidated by appointment or patient)
+  const patientPendingKeys = new Set();
+  followups.forEach(f => {
+    if (f.personType === 'lead' || !!f.leadId) return;
+    if ((f.personType === 'patient' || !!f.patientId) && isIncomplete(f)) {
+      let key;
+      if (f.appointmentId) {
+        key = `appt_${f.appointmentId}`;
+      } else if (
+        (f.category === 'Appointment Reminder' || f.category === 'Appointment Confirmation') &&
+        f.appointmentDate &&
+        (f.patientId || f.targetName)
+      ) {
+        key = `appt_${f.patientId || f.targetName}_${f.appointmentDate}`;
+      } else {
+        key = `pat_fol_${f.id}`;
+      }
+      patientPendingKeys.add(key);
+    }
+  });
+
+  const pendingFollowupsCount = prospectivePendingKeys.size + patientPendingKeys.size;
 
   // Expandable sections state - open by default for immediate accessibility
   const [expandedSections, setExpandedSections] = useState({

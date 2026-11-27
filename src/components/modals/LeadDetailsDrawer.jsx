@@ -22,7 +22,10 @@ import {
   PhoneCall,
   XCircle,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Pencil,
+  Save,
+  Check
 } from 'lucide-react';
 
 // ── Tooth Icon SVG for Treatment Interest ─────────────────────────────────────
@@ -71,6 +74,9 @@ export default function LeadDetailsDrawer() {
     completeFollowupTask,
     addLeadNote,
     logLeadCommunication,
+    updateLeadDetails,
+    treatments,
+    doctors,
     leadStatuses
   } = useApp();
 
@@ -81,10 +87,88 @@ export default function LeadDetailsDrawer() {
   const [callNotes, setCallNotes] = useState('');
   const [callNextDate, setCallNextDate] = useState('');
 
+  // Lead Editing State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    treatment: '',
+    assignedTo: '',
+    source: '',
+    priority: '',
+    remarks: ''
+  });
+  const [editErrors, setEditErrors] = useState({});
+
   if (!isLeadDetailsOpen || !selectedLeadId) return null;
 
   const lead = leads.find(l => l.id === selectedLeadId);
   if (!lead) return null;
+
+  const handleStartEdit = () => {
+    setEditFormData({
+      name: lead.name || '',
+      phone: lead.phone || '',
+      email: lead.email || '',
+      treatment: lead.treatment || (treatments && treatments[0]?.name) || 'Dental Implants',
+      assignedTo: lead.assignedTo || 'Sneha R (Front Desk)',
+      source: lead.source || 'Meta Ads',
+      priority: lead.priority || 'Hot',
+      remarks: lead.remarks || ''
+    });
+    setEditErrors({});
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditErrors({});
+  };
+
+  const handleSaveEdit = (e) => {
+    e.preventDefault();
+    const errors = {};
+
+    const cleanName = (editFormData.name || '').trim();
+    if (!cleanName) {
+      errors.name = 'Full name is required.';
+    } else if (cleanName.length < 2) {
+      errors.name = 'Name must be at least 2 characters.';
+    }
+
+    const cleanPhone = (editFormData.phone || '').replace(/\D/g, '');
+    if (!cleanPhone) {
+      errors.phone = 'Phone number is required.';
+    } else if (cleanPhone.length !== 10) {
+      errors.phone = `Phone must be exactly 10 digits (${cleanPhone.length}/10 entered).`;
+    }
+
+    const cleanEmail = (editFormData.email || '').trim();
+    if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      errors.email = 'Please enter a valid email format (e.g. name@example.com).';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors);
+      return;
+    }
+
+    if (updateLeadDetails) {
+      updateLeadDetails(lead.id, {
+        name: cleanName,
+        phone: cleanPhone,
+        email: cleanEmail,
+        treatment: editFormData.treatment,
+        assignedTo: (editFormData.assignedTo || '').trim() || 'Sneha R (Front Desk)',
+        source: editFormData.source,
+        priority: editFormData.priority,
+        remarks: (editFormData.remarks || '').trim()
+      });
+    }
+
+    setIsEditing(false);
+  };
 
   // Linked follow-up task
   const linkedFollowup = followups.find(
@@ -447,53 +531,249 @@ export default function LeadDetailsDrawer() {
             <>
               {/* Contact Information Card (Matching Reference Image 1) */}
               <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
-                <div className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
-                  Contact Information
+                <div className="flex items-center justify-between">
+                  <div className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+                    Contact Information
+                  </div>
+                  {!isEditing && (
+                    <button
+                      type="button"
+                      onClick={handleStartEdit}
+                      className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#1769D2] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Edit Lead Details"
+                    >
+                      <Pencil size={12} />
+                      <span>Edit Lead Details</span>
+                    </button>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span className="text-slate-400 block text-[11px] font-medium">Primary Phone</span>
-                    <div className="font-bold text-[#102A50] mt-0.5 flex items-center gap-1.5">
-                      <Phone size={12} className="text-slate-400" />
-                      <span>{lead.phone}</span>
-                      <a href={`tel:${lead.phone}`} className="text-[#1769D2] hover:text-blue-800 ml-0.5" title="Call">
-                        <PhoneCall size={12} />
-                      </a>
-                    </div>
-                  </div>
+                {isEditing ? (
+                  <form onSubmit={handleSaveEdit} className="space-y-3 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      {/* Full Name */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Full Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.name}
+                          onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                          className={`w-full bg-[#F8FAFC] border rounded-xl px-3 py-2 text-xs font-bold text-[#102A50] outline-none focus:ring-2 ${
+                            editErrors.name ? 'border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:ring-blue-100'
+                          }`}
+                          placeholder="e.g. Sri Ram"
+                          required
+                        />
+                        {editErrors.name && (
+                          <span className="text-[10px] text-rose-600 font-semibold mt-0.5 block">{editErrors.name}</span>
+                        )}
+                      </div>
 
-                  <div>
-                    <span className="text-slate-400 block text-[11px] font-medium">Email Address</span>
-                    <div className="font-semibold text-slate-700 mt-0.5 truncate">
-                      {lead.email || 'None provided'}
-                    </div>
-                  </div>
+                      {/* Primary Phone */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Primary Phone (10 digits) *
+                        </label>
+                        <input
+                          type="tel"
+                          value={editFormData.phone}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                            setEditFormData({ ...editFormData, phone: digits });
+                          }}
+                          className={`w-full bg-[#F8FAFC] border rounded-xl px-3 py-2 text-xs font-bold text-[#102A50] outline-none focus:ring-2 ${
+                            editErrors.phone ? 'border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:ring-blue-100'
+                          }`}
+                          placeholder="10-digit mobile number"
+                          required
+                        />
+                        {editErrors.phone && (
+                          <span className="text-[10px] text-rose-600 font-semibold mt-0.5 block">{editErrors.phone}</span>
+                        )}
+                      </div>
 
-                  <div>
-                    <span className="text-slate-400 block text-[11px] font-medium">Treatment Interest</span>
-                    <div className="font-bold text-[#1769D2] mt-0.5 flex items-center gap-1.5 truncate">
-                      <ToothIcon className="w-3.5 h-3.5 text-[#1769D2]" />
-                      <span className="truncate">{lead.treatment}</span>
-                    </div>
-                  </div>
+                      {/* Email Address */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Email Address
+                        </label>
+                        <input
+                          type="email"
+                          value={editFormData.email}
+                          onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                          className={`w-full bg-[#F8FAFC] border rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 ${
+                            editErrors.email ? 'border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:ring-blue-100'
+                          }`}
+                          placeholder="e.g. name@domain.com"
+                        />
+                        {editErrors.email && (
+                          <span className="text-[10px] text-rose-600 font-semibold mt-0.5 block">{editErrors.email}</span>
+                        )}
+                      </div>
 
-                  <div>
-                    <span className="text-slate-400 block text-[11px] font-medium">Assigned Staff</span>
-                    <div className="font-semibold text-slate-700 mt-0.5 flex items-center gap-1.5 truncate">
-                      <User size={12} className="text-slate-400" />
-                      <span className="truncate">{lead.assignedTo || 'Sneha R (Front Desk)'}</span>
-                    </div>
-                  </div>
-                </div>
+                      {/* Treatment Interest */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Treatment Interest
+                        </label>
+                        <select
+                          value={editFormData.treatment}
+                          onChange={(e) => setEditFormData({ ...editFormData, treatment: e.target.value })}
+                          className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-[#1769D2] outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer"
+                        >
+                          {(treatments && treatments.length > 0 ? treatments : [
+                            { id: 1, name: 'Dental Implants' },
+                            { id: 2, name: 'Clear Aligners' },
+                            { id: 3, name: 'Root Canal Treatment' },
+                            { id: 4, name: 'Teeth Whitening' },
+                            { id: 5, name: 'Zirconia Crown / Bridge' },
+                            { id: 6, name: 'Pediatric Dental Care' }
+                          ]).map(t => (
+                            <option key={t.id || t.name} value={t.name}>{t.name}</option>
+                          ))}
+                        </select>
+                      </div>
 
-                {/* Enquiry Remarks */}
-                <div className="pt-2 border-t border-slate-100">
-                  <span className="text-slate-600 block text-xs font-bold mb-1">Enquiry Remarks:</span>
-                  <div className="text-xs text-slate-700 leading-relaxed bg-[#F8FAFC] p-3 rounded-xl border border-slate-100 font-medium">
-                    {lead.remarks || 'Enquiry received. Waiting for initial clinical consultation.'}
-                  </div>
-                </div>
+                      {/* Assigned Staff (Type or Select) */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Assigned Staff
+                        </label>
+                        <input
+                          type="text"
+                          list="assigned-staff-list"
+                          value={editFormData.assignedTo}
+                          onChange={(e) => setEditFormData({ ...editFormData, assignedTo: e.target.value })}
+                          className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                          placeholder="Type or select staff..."
+                        />
+                        <datalist id="assigned-staff-list">
+                          <option value="Sneha R (Front Desk)" />
+                          <option value="Kavitha (Front Desk)" />
+                          <option value="Front Desk Reception" />
+                          {(doctors || []).map(doc => (
+                            <option key={doc.id} value={doc.name} />
+                          ))}
+                        </datalist>
+                      </div>
+
+                      {/* Lead Source */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Lead Source
+                        </label>
+                        <select
+                          value={editFormData.source}
+                          onChange={(e) => setEditFormData({ ...editFormData, source: e.target.value })}
+                          className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer"
+                        >
+                          <option value="Meta Ads">Meta Ads</option>
+                          <option value="Walk In">Walk In</option>
+                          <option value="WhatsApp">WhatsApp</option>
+                          <option value="Referral">Referral</option>
+                          <option value="Website">Website</option>
+                          <option value="Google Ads">Google Ads</option>
+                        </select>
+                      </div>
+
+                      {/* Priority */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Priority
+                        </label>
+                        <select
+                          value={editFormData.priority}
+                          onChange={(e) => setEditFormData({ ...editFormData, priority: e.target.value })}
+                          className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer"
+                        >
+                          <option value="Hot">🔥 Hot</option>
+                          <option value="Warm">⚡ Warm</option>
+                          <option value="Cold">❄️ Cold</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Enquiry Remarks */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Enquiry Remarks
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={editFormData.remarks}
+                        onChange={(e) => setEditFormData({ ...editFormData, remarks: e.target.value })}
+                        className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl p-3 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-blue-100 resize-none font-medium"
+                        placeholder="Enter enquiry remarks or consultation summary..."
+                      />
+                    </div>
+
+                    {/* Form Action Buttons */}
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-1.5 rounded-xl bg-[#1769D2] hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-blue-500/20 transition-all cursor-pointer"
+                      >
+                        <Save size={13} />
+                        <span>Save Changes</span>
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-slate-400 block text-[11px] font-medium">Primary Phone</span>
+                        <div className="font-bold text-[#102A50] mt-0.5 flex items-center gap-1.5">
+                          <Phone size={12} className="text-slate-400" />
+                          <span>{lead.phone}</span>
+                          <a href={`tel:${lead.phone}`} className="text-[#1769D2] hover:text-blue-800 ml-0.5" title="Call">
+                            <PhoneCall size={12} />
+                          </a>
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 block text-[11px] font-medium">Email Address</span>
+                        <div className="font-semibold text-slate-700 mt-0.5 truncate">
+                          {lead.email || 'None provided'}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 block text-[11px] font-medium">Treatment Interest</span>
+                        <div className="font-bold text-[#1769D2] mt-0.5 flex items-center gap-1.5 truncate">
+                          <ToothIcon className="w-3.5 h-3.5 text-[#1769D2]" />
+                          <span className="truncate">{lead.treatment}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 block text-[11px] font-medium">Assigned Staff</span>
+                        <div className="font-semibold text-slate-700 mt-0.5 flex items-center gap-1.5 truncate">
+                          <User size={12} className="text-slate-400" />
+                          <span className="truncate">{lead.assignedTo || 'Sneha R (Front Desk)'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Enquiry Remarks */}
+                    <div className="pt-2 border-t border-slate-100">
+                      <span className="text-slate-600 block text-xs font-bold mb-1">Enquiry Remarks:</span>
+                      <div className="text-xs text-slate-700 leading-relaxed bg-[#F8FAFC] p-3 rounded-xl border border-slate-100 font-medium">
+                        {lead.remarks || 'Enquiry received. Waiting for initial clinical consultation.'}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Follow-up Task Card (Matching Reference Image 1) */}

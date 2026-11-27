@@ -142,6 +142,34 @@ export const AppProvider = ({ children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [settingsTab, setSettingsTab] = useState('general');
 
+  // Admin Profile — Single source of truth for top-right header identity
+  const [adminProfile, setAdminProfile] = useState(() => {
+    const saved = loadFromStorage('indus_admin_profile_v1', null);
+    if (saved && saved.name) return saved;
+    return {
+      name: 'Dr. Agalya',
+      designation: 'Chief Dental Surgeon & Implantologist',
+      photo: null,
+      initials: 'AG'
+    };
+  });
+
+  // Persist adminProfile to localStorage whenever it changes
+  useEffect(() => {
+    try { localStorage.setItem('indus_admin_profile_v1', JSON.stringify(adminProfile)); } catch (e) {}
+  }, [adminProfile]);
+
+  const updateAdminProfile = (updates) => {
+    const newName = updates.name || adminProfile.name;
+    setAdminProfile(prev => ({
+      ...prev,
+      ...updates,
+      initials: getDoctorInitials(newName)
+    }));
+  };
+
+  const getAdminInitials = (name) => getDoctorInitials(name || '');
+
   // Search & Filters
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -2282,6 +2310,11 @@ export const AppProvider = ({ children }) => {
         setIsLostLeadModalOpen,
         leadToBookAppt,
         setLeadToBookAppt,
+
+        // Admin Profile (top-right header identity)
+        adminProfile,
+        updateAdminProfile,
+        getAdminInitials,
 
         // Constants
         leadStatuses: LEAD_STATUSES,

@@ -348,7 +348,7 @@ export default function Header() {
                 {adminProfile?.photo ? (
                   <img src={adminProfile.photo} alt={adminProfile.name || currentUser.name} className="w-full h-full object-cover rounded-full" />
                 ) : (
-                  currentUser.initials || 'PS'
+                  adminProfile?.initials || getDoctorInitials(adminProfile?.name || '') || 'AD'
                 )}
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white" />
@@ -379,7 +379,7 @@ export default function Header() {
                   {adminProfile?.photo ? (
                     <img src={adminProfile.photo} alt={adminProfile.name || currentUser.name} className="w-full h-full object-cover rounded-full" />
                   ) : (
-                    currentUser.initials || 'PS'
+                    adminProfile?.initials || getDoctorInitials(adminProfile?.name || '') || 'AD'
                   )}
                 </div>
                 <div className="min-w-0 flex-1">

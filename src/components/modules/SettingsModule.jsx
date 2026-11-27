@@ -159,20 +159,18 @@ export default function SettingsModule() {
   };
 
   // Admin Profile local form state
-  const [adminName, setAdminName] = useState(adminProfile?.name || 'Dr. Priya Sharma');
-  const [adminRole, setAdminRole] = useState(adminProfile?.designation || 'Chief Dental Surgeon & Implantologist');
+  const [adminName, setAdminName] = useState(adminProfile?.name || '');
+  const [adminRole, setAdminRole] = useState(adminProfile?.designation || '');
   const [adminPhoto, setAdminPhoto] = useState(adminProfile?.photo || '');
 
   // Keep synced if adminProfile changes externally
   useEffect(() => {
-    if (adminProfile) {
-      setAdminName(adminProfile.name || 'Dr. Priya Sharma');
-      setAdminRole(adminProfile.designation || 'Chief Dental Surgeon & Implantologist');
-      setAdminPhoto(adminProfile.photo || '');
-    }
+    setAdminName(adminProfile?.name || '');
+    setAdminRole(adminProfile?.designation || '');
+    setAdminPhoto(adminProfile?.photo || '');
   }, [adminProfile]);
 
-  const computedInitials = getAdminInitials ? getAdminInitials(adminName) : 'PS';
+  const computedInitials = getAdminInitials ? getAdminInitials(adminName) : getDoctorInitials(adminName) || 'AD';
 
   const handleSaveAdminProfile = (e) => {
     if (e) e.preventDefault();
